@@ -159,7 +159,7 @@ const styles = createStyle({
     top: 0,
     left: 0,
     right: 0,
-    height: '64%',
+    height: '62%',
     overflow: 'hidden',
   },
   gradientLinearRow: {
@@ -184,12 +184,12 @@ const styles = createStyle({
   },
   headerUpper: {
     textTransform: 'uppercase',
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontWeight: '600',
+    letterSpacing: 1.3,
   },
   headerTitle: {
     marginTop: 2,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   list: {
     flex: 1,
@@ -217,8 +217,12 @@ const styles = createStyle({
     borderTopWidth: 1,
     borderTopColor: 'rgba(15,23,42,0.04)',
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 18,
+    shadowColor: '#000000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
   },
   progressTrack: {
     height: 6,
@@ -251,7 +255,7 @@ const styles = createStyle({
     marginLeft: 10,
   },
   playerTitle: {
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 2,
   },
   controls: {
@@ -274,9 +278,9 @@ const styles = createStyle({
     justifyContent: 'center',
     marginHorizontal: 3,
     shadowColor: PLAY_BUTTON_COLOR,
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   rightActions: {
     flexDirection: 'row',

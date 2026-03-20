@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { Animated, Easing, TouchableOpacity, View } from 'react-native'
 import { pop } from '@/navigation'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useIsPlay, usePlayerMusicInfo, useProgress } from '@/store/player/hook'
@@ -12,6 +12,11 @@ import { useWindowSize } from '@/utils/hooks'
 import { createLinearGradientColors, getCoverTheme } from './coverTheme'
 
 const PLAY_BUTTON_COLOR = '#111827'
+const TONEARM_OUT_ANGLE = '18deg'
+const TONEARM_IN_ANGLE = '-2deg'
+const TONEARM_PIVOT_X = 111
+const TONEARM_PIVOT_Y = 9
+const RECORD_SPIN_DURATION = 9000
 
 const toPercent = (now: number, total: number): `${number}%` => {
   if (!total) return '0%'
@@ -23,6 +28,9 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
   const musicInfo = usePlayerMusicInfo()
   const { nowPlayTimeStr, maxPlayTimeStr, progress, maxPlayTime } = useProgress(active)
   const isPlay = useIsPlay()
+  const tonearmProgress = useRef(new Animated.Value(isPlay ? 1 : 0)).current
+  const recordSpinProgress = useRef(new Animated.Value(0)).current
+  const recordSpinAnim = useRef<Animated.CompositeAnimation | null>(null)
   const winSize = useWindowSize()
   const discSize = Math.min(winSize.width * 0.9, 450)
   const coverTheme = useMemo(() => getCoverTheme(musicInfo?.pic ?? `${musicInfo?.id ?? 'track'}`), [musicInfo?.id, musicInfo?.pic])
@@ -31,12 +39,12 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
   const radialCenterY = discSize * 0.28
   const radialMaxRadius = discSize * 0.74
   const radialLayersPrimary = useMemo(() => {
-    const count = 36
+    const count = 20
     return Array.from({ length: count }, (_, index) => {
       const t = index / (count - 1) // outer -> inner
-      const radius = radialMaxRadius * (1 - t * 0.84)
+      const radius = radialMaxRadius * (1 - t * 0.8)
       const size = radius * 2
-      const alpha = 0.01 + Math.pow(t, 1.7) * 0.025
+      const alpha = 0.004 + Math.pow(t, 1.7) * 0.012
       return {
         key: `radial_primary_${index}`,
         size,
@@ -46,12 +54,12 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
     })
   }, [coverTheme.top, radialMaxRadius])
   const radialLayersSecondary = useMemo(() => {
-    const count = 20
+    const count = 10
     return Array.from({ length: count }, (_, index) => {
       const t = index / (count - 1) // outer -> inner
-      const radius = radialMaxRadius * (0.9 - t * 0.72)
+      const radius = radialMaxRadius * (0.82 - t * 0.64)
       const size = radius * 2
-      const alpha = 0.006 + Math.pow(t, 1.8) * 0.018
+      const alpha = 0.002 + Math.pow(t, 1.8) * 0.008
       return {
         key: `radial_secondary_${index}`,
         size,
@@ -61,23 +69,121 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
     })
   }, [coverTheme.glow, radialMaxRadius])
   const radialLayersHighlight = useMemo(() => {
-    const count = 12
+    const count = 6
     return Array.from({ length: count }, (_, index) => {
       const t = index / (count - 1) // outer -> inner
-      const radius = radialMaxRadius * (0.58 - t * 0.5)
+      const radius = radialMaxRadius * (0.5 - t * 0.45)
       const size = radius * 2
-      const alpha = 0.002 + Math.pow(t, 2.2) * 0.009
+      const alpha = 0.0008 + Math.pow(t, 2.2) * 0.0028
       return {
         key: `radial_highlight_${index}`,
         size,
         opacity: alpha,
-        color: coverTheme.accent,
+        color: coverTheme.middle,
       }
     })
-  }, [coverTheme.accent, radialMaxRadius])
+  }, [coverTheme.middle, radialMaxRadius])
+  const vinylGrooves = useMemo(() => {
+    const grooves: Array<{ key: string, inset: number, opacity: number }> = []
+    const start = Math.max(10, discSize * 0.06)
+    const end = discSize * 0.31
+    const step = Math.max(2, discSize * 0.017)
+    let index = 0
+    for (let inset = start; inset < end; inset += step) {
+      grooves.push({
+        key: `vinyl_groove_${index++}`,
+        inset,
+        opacity: index % 2 ? 0.085 : 0.052,
+      })
+    }
+    return grooves
+  }, [discSize])
+  const recordRotate = recordSpinProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  })
+  const vinylSheenStyle = useMemo(() => ({
+    top: discSize * 0.12,
+    left: discSize * 0.18,
+    width: discSize * 0.58,
+    height: discSize * 0.42,
+    borderRadius: discSize * 0.29,
+  }), [discSize])
 
   const goBack = () => {
     void pop(componentId)
+  }
+  const animateTonearm = useCallback((isIn: boolean) => {
+    Animated.timing(tonearmProgress, {
+      toValue: isIn ? 1 : 0,
+      duration: isIn ? 280 : 220,
+      easing: isIn ? Easing.out(Easing.cubic) : Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start()
+  }, [tonearmProgress])
+  const tonearmRotate = tonearmProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [TONEARM_OUT_ANGLE, TONEARM_IN_ANGLE],
+  })
+
+  const runRecordSpinLoop = useCallback((from: number) => {
+    const firstDuration = Math.max(32, Math.floor(RECORD_SPIN_DURATION * (1 - from)))
+    const spinLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(recordSpinProgress, {
+          toValue: 1,
+          duration: firstDuration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(recordSpinProgress, {
+          toValue: 0,
+          duration: 0,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(recordSpinProgress, {
+          toValue: 1,
+          duration: RECORD_SPIN_DURATION,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ]),
+    )
+    recordSpinAnim.current = spinLoop
+    spinLoop.start()
+  }, [recordSpinProgress])
+
+  const startRecordSpin = useCallback(() => {
+    recordSpinAnim.current?.stop()
+    recordSpinProgress.stopAnimation(current => {
+      runRecordSpinLoop(current % 1)
+    })
+  }, [recordSpinProgress, runRecordSpinLoop])
+
+  const stopRecordSpin = useCallback(() => {
+    recordSpinAnim.current?.stop()
+    recordSpinAnim.current = null
+    recordSpinProgress.stopAnimation(current => {
+      recordSpinProgress.setValue(current % 1)
+    })
+  }, [recordSpinProgress])
+
+  useEffect(() => {
+    animateTonearm(isPlay)
+  }, [animateTonearm, isPlay])
+
+  useEffect(() => {
+    if (isPlay && active) startRecordSpin()
+    else stopRecordSpin()
+    return () => {
+      stopRecordSpin()
+    }
+  }, [active, isPlay, startRecordSpin, stopRecordSpin])
+
+  const handleTogglePlay = () => {
+    animateTonearm(!isPlay)
+    togglePlay()
   }
 
   return (
@@ -92,8 +198,10 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
           <Icon name="chevron-left" rawSize={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text size={10} color="#6b7280" style={styles.headerUpper}>Playing From Playlist</Text>
-          <Text size={13} color="#111827" numberOfLines={1} style={styles.headerTitle}>Late Night Grooves</Text>
+          <Text size={10} color="#6b7280" style={styles.headerUpper}>Now Playing</Text>
+          <Text size={13} color="#111827" numberOfLines={1} style={styles.headerTitle}>
+            {(musicInfo.name || 'Unknown Song') + (musicInfo.singer ? ` - ${musicInfo.singer}` : '')}
+          </Text>
         </View>
         <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7}>
           <Icon name="menu" rawSize={22} color="#111827" />
@@ -156,11 +264,49 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
               ]}
             />
           ))}
-          <View style={styles.recordTone} />
-          <View style={styles.record}>
-            <View style={styles.recordInner}>
-              <Image style={styles.recordImage} url={musicInfo.pic} />
+          <Animated.View style={[styles.recordSpin, { transform: [{ rotate: recordRotate }] }]}>
+            <View style={styles.record}>
+              {vinylGrooves.map(groove => (
+                <View
+                  key={groove.key}
+                  pointerEvents="none"
+                  style={[
+                    styles.vinylGroove,
+                    {
+                      top: groove.inset,
+                      left: groove.inset,
+                      right: groove.inset,
+                      bottom: groove.inset,
+                      opacity: groove.opacity,
+                    },
+                  ]}
+                />
+              ))}
+              <View pointerEvents="none" style={[styles.vinylSheen, vinylSheenStyle]} />
+              <View style={styles.recordInner}>
+                <Image style={styles.recordImage} url={musicInfo.pic} />
+              </View>
             </View>
+          </Animated.View>
+          <View pointerEvents="none" style={styles.tonearm}>
+            <Animated.View
+              style={[
+                styles.tonearmMotion,
+                {
+                  transform: [
+                    { translateX: TONEARM_PIVOT_X },
+                    { translateY: TONEARM_PIVOT_Y },
+                    { rotate: tonearmRotate },
+                    { translateX: -TONEARM_PIVOT_X },
+                    { translateY: -TONEARM_PIVOT_Y },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.tonearmPivot} />
+              <View style={styles.tonearmArm} />
+              <View style={styles.tonearmHead} />
+            </Animated.View>
           </View>
         </View>
       </View>
@@ -200,7 +346,7 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
             <TouchableOpacity style={styles.mediumBtn} activeOpacity={0.8} onPress={() => { void playPrev() }}>
               <Icon name="prevMusic" rawSize={28} color="#374151" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.playBtn} activeOpacity={0.85} onPress={togglePlay}>
+            <TouchableOpacity style={styles.playBtn} activeOpacity={0.85} onPress={handleTogglePlay}>
               <Icon name={isPlay ? 'pause' : 'play'} rawSize={34} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.mediumBtn} activeOpacity={0.8} onPress={() => { void playNext() }}>
@@ -227,7 +373,7 @@ const styles = createStyle({
     top: 0,
     left: 0,
     right: 0,
-    height: '64%',
+    height: '62%',
     overflow: 'hidden',
   },
   gradientLinearRow: {
@@ -255,19 +401,19 @@ const styles = createStyle({
   },
   headerUpper: {
     textTransform: 'uppercase',
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontWeight: '600',
+    letterSpacing: 1.3,
   },
   headerTitle: {
     marginTop: 2,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   main: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingTop: 14,
+    paddingTop: 6,
   },
   recordWrap: {
     position: 'relative',
@@ -276,39 +422,89 @@ const styles = createStyle({
     justifyContent: 'center',
     marginBottom: 24,
   },
-  recordTone: {
+  tonearm: {
     position: 'absolute',
-    top: -6,
-    right: -8,
-    width: 70,
-    height: 100,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#cbd5e1',
-    transform: [{ rotate: '12deg' }],
-    opacity: 0.75,
+    top: 36,
+    right: 2,
+    width: 118,
+    height: 76,
+    opacity: 0.66,
+    zIndex: 5,
+  },
+  tonearmMotion: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  tonearmPivot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#a7afbe',
+  },
+  tonearmArm: {
+    position: 'absolute',
+    top: 6,
+    right: 12,
+    width: 82,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#b8bfcc',
+  },
+  tonearmHead: {
+    position: 'absolute',
+    top: 5,
+    right: 92,
+    width: 14,
+    height: 12,
+    borderRadius: 3,
+    backgroundColor: '#7f8898',
+  },
+  recordSpin: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   record: {
     width: '100%',
     height: '100%',
     borderRadius: 999,
-    borderWidth: 4,
-    borderColor: 'rgba(15,23,42,0.1)',
+    borderWidth: 3,
+    borderColor: 'rgba(15,23,42,0.08)',
     backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  vinylGroove: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  vinylSheen: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    transform: [{ rotate: '-18deg' }],
+    opacity: 0.35,
   },
   recordInner: {
-    width: '68%',
-    height: '68%',
+    width: '66%',
+    height: '66%',
     borderRadius: 999,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -323,15 +519,15 @@ const styles = createStyle({
   },
   bottomPanel: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 18,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
     paddingHorizontal: 20,
     paddingBottom: 22,
     shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
   },
   titleRow: {
     flexDirection: 'row',
@@ -346,7 +542,7 @@ const styles = createStyle({
   },
   singer: {
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '400',
     marginBottom: 12,
   },
   progressTrack: {
@@ -398,8 +594,8 @@ const styles = createStyle({
     justifyContent: 'center',
     marginHorizontal: 10,
     shadowColor: PLAY_BUTTON_COLOR,
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
 })
