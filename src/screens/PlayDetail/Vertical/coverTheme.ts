@@ -119,3 +119,14 @@ export const createLinearGradientColors = (theme: CoverTheme, steps = 72) => {
     return mixHex(theme.glow, theme.bottom, easeInOut((t - 0.78) / 0.22))
   })
 }
+
+export const createWhiteFadeMaskColors = (steps = 72, topAlpha = 0.14, bottomAlpha = 1) => {
+  const total = Math.max(2, steps)
+  const start = clamp(topAlpha, 0, 1)
+  const end = clamp(bottomAlpha, 0, 1)
+  return Array.from({ length: total }, (_, index) => {
+    const t = index / (total - 1)
+    const alpha = start + (end - start) * easeInOut(t)
+    return `rgba(255,255,255,${alpha.toFixed(4)})`
+  })
+}

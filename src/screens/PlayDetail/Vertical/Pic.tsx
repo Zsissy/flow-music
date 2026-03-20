@@ -7,9 +7,11 @@ import { createStyle } from '@/utils/tools'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
-import { playNext, playPrev, togglePlay } from '@/core/player/player'
+import { collectMusic, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
 import { useWindowSize } from '@/utils/hooks'
-import { createLinearGradientColors, getCoverTheme } from './coverTheme'
+import { createLinearGradientColors, createWhiteFadeMaskColors, getCoverTheme } from './coverTheme'
+import { LIST_IDS } from '@/config/constant'
+import { getListMusics } from '@/core/list'
 
 const PLAY_BUTTON_COLOR = '#111827'
 const TONEARM_OUT_ANGLE = '18deg'
@@ -33,13 +35,21 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
   const recordSpinProgress = useRef(new Animated.Value(0)).current
   const recordSpinAnim = useRef<Animated.CompositeAnimation | null>(null)
   const coverTransition = useRef(new Animated.Value(1)).current
+  const loveCheckId = useRef(0)
   const hasMountedRef = useRef(false)
   const [currentCover, setCurrentCover] = useState(musicInfo.pic)
   const [prevCover, setPrevCover] = useState<string | null | undefined>(null)
+  const [isLoved, setIsLoved] = useState(false)
   const winSize = useWindowSize()
   const discSize = Math.min(winSize.width * 0.9, 450)
   const coverTheme = useMemo(() => getCoverTheme(musicInfo?.pic ?? `${musicInfo?.id ?? 'track'}`), [musicInfo?.id, musicInfo?.pic])
-  const gradientColors = useMemo(() => createLinearGradientColors(coverTheme, 84), [coverTheme])
+  const backgroundCover = currentCover ?? musicInfo?.pic
+  const hasBackgroundCover = Boolean(backgroundCover)
+  const gradientColors = useMemo(() => {
+    return hasBackgroundCover
+      ? createWhiteFadeMaskColors(84, 0.12, 1)
+      : createLinearGradientColors(coverTheme, 84)
+  }, [coverTheme, hasBackgroundCover])
   const radialCenterX = discSize * 0.5
   const radialCenterY = discSize * 0.28
   const radialMaxRadius = discSize * 0.74
@@ -118,6 +128,17 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
   const goBack = () => {
     void pop(componentId)
   }
+  const refreshLovedState = useCallback(async(targetId?: string | null) => {
+    const musicId = targetId ?? musicInfo.id
+    if (!musicId) {
+      setIsLoved(false)
+      return
+    }
+    const currentCheckId = ++loveCheckId.current
+    const loveList = await getListMusics(LIST_IDS.LOVE)
+    if (currentCheckId !== loveCheckId.current) return
+    setIsLoved(loveList.some(song => song.id === musicId))
+  }, [musicInfo.id])
   const animateTonearm = useCallback((isIn: boolean) => {
     Animated.timing(tonearmProgress, {
       toValue: isIn ? 1 : 0,
@@ -223,6 +244,29 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
     })
   }, [coverTransition, currentCover, musicInfo.id, musicInfo.pic])
 
+  useEffect(() => {
+    void refreshLovedState(musicInfo.id)
+  }, [musicInfo.id, refreshLovedState])
+
+  useEffect(() => {
+    const handleLoveListChanged = (ids: string[]) => {
+      if (!ids.includes(LIST_IDS.LOVE)) return
+      void refreshLovedState()
+    }
+    global.app_event.on('myListMusicUpdate', handleLoveListChanged)
+    return () => {
+      global.app_event.off('myListMusicUpdate', handleLoveListChanged)
+    }
+  }, [refreshLovedState])
+
+  const handleToggleLoved = () => {
+    if (!musicInfo.id) return
+    const nextLoved = !isLoved
+    setIsLoved(nextLoved)
+    if (nextLoved) collectMusic()
+    else uncollectMusic()
+  }
+
   const handleTogglePlay = () => {
     animateTonearm(!isPlay)
     togglePlay()
@@ -231,6 +275,9 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
   return (
     <View style={styles.container}>
       <View pointerEvents="none" style={styles.gradientLinearWrap}>
+        {hasBackgroundCover
+          ? <Image url={backgroundCover} style={styles.gradientCoverImage} blurRadius={46} showFallback={false} />
+          : null}
         {gradientColors.map((color, index) => (
           <View key={`pic_gradient_${index}`} style={[styles.gradientLinearRow, { backgroundColor: color }]} />
         ))}
@@ -375,8 +422,10 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
             <Text size={24} color="#111827" numberOfLines={1} style={styles.songTitle}>
               {musicInfo.name || 'Midnight City Echoes'}
             </Text>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Icon name="love" rawSize={20} color="#ef4444" />
+            <TouchableOpacity style={styles.loveBtn} activeOpacity={0.7} onPress={handleToggleLoved}>
+              {isLoved
+                ? <Text size={20} color="#ef4444" style={styles.loveFilled}>♥</Text>
+                : <Icon name="love" rawSize={20} color="#9ca3af" />}
             </TouchableOpacity>
           </View>
           <Text size={18} color={coverTheme.accent} numberOfLines={1} style={styles.singer}>
@@ -433,6 +482,15 @@ const styles = createStyle({
   },
   gradientLinearRow: {
     flex: 1,
+  },
+  gradientCoverImage: {
+    position: 'absolute',
+    top: -26,
+    left: -24,
+    right: -24,
+    bottom: -18,
+    opacity: 0.92,
+    transform: [{ scale: 1.1 }],
   },
   radialLayer: {
     position: 'absolute',
@@ -595,6 +653,16 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  loveBtn: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loveFilled: {
+    lineHeight: 21,
+    fontWeight: '700',
   },
   songTitle: {
     flex: 1,

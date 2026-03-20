@@ -10,7 +10,7 @@ import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import { playNext, playPrev, togglePlay } from '@/core/player/player'
-import { createLinearGradientColors, getCoverTheme } from './coverTheme'
+import { createLinearGradientColors, createWhiteFadeMaskColors, getCoverTheme } from './coverTheme'
 
 const PLAY_BUTTON_COLOR = '#111827'
 
@@ -39,7 +39,12 @@ export default ({ active }: { active: boolean }) => {
   const lyricLines = useLrcSet()
   const listRef = useRef<FlatList<string>>(null)
   const coverTheme = useMemo(() => getCoverTheme(musicInfo?.pic ?? `${musicInfo?.id ?? 'track'}`), [musicInfo?.id, musicInfo?.pic])
-  const gradientColors = useMemo(() => createLinearGradientColors(coverTheme, 84), [coverTheme])
+  const hasBackgroundCover = Boolean(musicInfo?.pic)
+  const gradientColors = useMemo(() => {
+    return hasBackgroundCover
+      ? createWhiteFadeMaskColors(84, 0.12, 1)
+      : createLinearGradientColors(coverTheme, 84)
+  }, [coverTheme, hasBackgroundCover])
 
   const lines = useMemo(() => {
     if (!lyricLines.length) return defaultLines
@@ -76,6 +81,9 @@ export default ({ active }: { active: boolean }) => {
   return (
     <View style={styles.container}>
       <View pointerEvents="none" style={styles.gradientLinearWrap}>
+        {hasBackgroundCover
+          ? <Image url={musicInfo.pic} style={styles.gradientCoverImage} blurRadius={46} showFallback={false} />
+          : null}
         {gradientColors.map((color, index) => (
           <View key={`lyric_gradient_${index}`} style={[styles.gradientLinearRow, { backgroundColor: color }]} />
         ))}
@@ -164,6 +172,15 @@ const styles = createStyle({
   },
   gradientLinearRow: {
     flex: 1,
+  },
+  gradientCoverImage: {
+    position: 'absolute',
+    top: -26,
+    left: -24,
+    right: -24,
+    bottom: -18,
+    opacity: 0.92,
+    transform: [{ scale: 1.1 }],
   },
   header: {
     flexDirection: 'row',

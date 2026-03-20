@@ -11,6 +11,8 @@ export interface ImageProps extends ViewProps {
   url?: string | number | null
   cache?: boolean
   resizeMode?: FastImageProps['resizeMode']
+  blurRadius?: number
+  showFallback?: boolean
   onError?: (url: string | number) => void
 }
 
@@ -27,7 +29,7 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
   )
 })
 
-const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, style, onError, nativeID }: ImageProps) => {
+const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, blurRadius, showFallback = true, style, onError, nativeID }: ImageProps) => {
   const [isLoaded, setLoaded] = useState(false)
   const [isError, setError] = useState(false)
 
@@ -59,7 +61,7 @@ const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, style
 
   return (
     <View style={StyleSheet.compose(styles.imageWrap, style)}>
-      <_Image source={loadFailPic} style={styles.imageLayer} resizeMode="cover" />
+      {showFallback ? <_Image source={loadFailPic} style={styles.imageLayer} resizeMode="cover" /> : null}
       <FastImage
         style={StyleSheet.compose(styles.imageLayer, showNetworkImage ? undefined : styles.hiddenLayer)}
         transition="fade"
@@ -72,6 +74,7 @@ const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, style
         onError={handleError}
         onLoad={handleLoad}
         resizeMode={resizeMode}
+        blurRadius={blurRadius}
         nativeID={nativeID}
       />
     </View>
@@ -79,7 +82,9 @@ const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, style
 }, (prevProps, nextProps) => {
   return prevProps.url == nextProps.url &&
     prevProps.style == nextProps.style &&
-    prevProps.nativeID == nextProps.nativeID
+    prevProps.nativeID == nextProps.nativeID &&
+    prevProps.blurRadius == nextProps.blurRadius &&
+    prevProps.showFallback == nextProps.showFallback
 })
 
 export const getSize = (uri: string, success: (width: number, height: number) => void, failure?: (error: any) => void) => {
