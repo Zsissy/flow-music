@@ -12,8 +12,10 @@ import commonState from '@/store/common/state'
 import { navigations } from '@/navigation'
 import { getListMusics } from '@/core/list'
 import { LIST_IDS } from '@/config/constant'
+import { useI18n } from '@/lang'
 
 export default memo(({ isHome = false }: { isHome?: boolean }) => {
+  const t = useI18n()
   const { keyboardShown } = useKeyboard()
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const musicInfo = usePlayerMusicInfo()
@@ -81,10 +83,10 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
           </View>
           <View style={styles.center}>
             <Text size={13} color="#111827" numberOfLines={1} style={styles.title}>
-              {musicInfo.name || 'Not Playing'}
+              {musicInfo.name || t('player_bar_not_playing')}
             </Text>
             <Text size={10} color="#6b7280" numberOfLines={1}>
-              {musicInfo.singer || 'Choose a song to start'}
+              {musicInfo.singer || t('player_bar_choose_song')}
             </Text>
           </View>
         </TouchableOpacity>

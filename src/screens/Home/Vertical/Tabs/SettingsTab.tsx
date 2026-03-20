@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, Modal, ScrollView, Switch, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -10,9 +10,17 @@ import Source, { type SourceType } from '@/screens/Home/Views/Setting/settings/B
 import Sync, { type SyncType } from '@/screens/Home/Views/Setting/settings/Sync'
 import { getUserName, saveUserAvatar, saveUserName } from '@/utils/data'
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
+import { useSettingValue } from '@/store/setting/hook'
+import { setLanguage } from '@/core/common'
 
 const SHOW_ADVANCED_SWITCHES = false
 const DEFAULT_USER_NAME = 'Alex Rivera'
+const languageOptions = [
+  { locale: 'zh_cn', label: '\u7b80\u4f53\u4e2d\u6587' },
+  { locale: 'zh_tw', label: '\u7e41\u9ad4\u4e2d\u6587' },
+  { locale: 'en_us', label: 'English' },
+] as const
 
 const settingItems = [
   { title: 'App Theme', subtitle: 'Light Mode', icon: 'setting', enabled: true },
@@ -22,6 +30,7 @@ const settingItems = [
 ]
 
 export default () => {
+  const t = useI18n()
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   const headerTopPadding = statusBarHeight + 8
@@ -32,6 +41,12 @@ export default () => {
   const [nickname, setNickname] = useState(DEFAULT_USER_NAME)
   const [nicknameDraft, setNicknameDraft] = useState(DEFAULT_USER_NAME)
   const [isNameModalVisible, setNameModalVisible] = useState(false)
+  const [isLanguagePanelVisible, setLanguagePanelVisible] = useState(false)
+  const activeLangId = useSettingValue('common.langId')
+  const activeLanguageLabel = useMemo(() => {
+    const activeLocale = activeLangId ?? 'en_us'
+    return languageOptions.find(item => item.locale === activeLocale)?.label ?? 'English'
+  }, [activeLangId])
 
   useEffect(() => {
     let isUnmounted = false
@@ -63,7 +78,7 @@ export default () => {
   }
   const handlePickAvatar = () => {
     avatarFileRef.current?.show({
-      title: '\u9009\u62e9\u5934\u50cf\u56fe\u7247',
+      title: t('setting_profile_avatar_picker_title'),
       dirOnly: false,
       filter: ['jpg', 'jpeg', 'png', 'webp', 'bmp'],
     }, (path) => {
@@ -92,6 +107,13 @@ export default () => {
       setNameModalVisible(false)
     })
   }
+  const handleToggleLanguagePanel = () => {
+    setLanguagePanelVisible((visible) => !visible)
+  }
+  const handleSelectLanguage = (locale: typeof languageOptions[number]['locale']) => {
+    setLanguage(locale)
+    setLanguagePanelVisible(false)
+  }
 
   return (
     <View style={styles.container}>
@@ -100,7 +122,7 @@ export default () => {
           <Icon name="search-2" rawSize={18} color="#9ca3af" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search settings..."
+            placeholder={t('setting_search_placeholder')}
             placeholderTextColor="#9ca3af"
           />
         </View>
@@ -115,18 +137,18 @@ export default () => {
         overScrollMode="never"
       >
         <View style={styles.titleArea}>
-          <Text size={28} color="#111827" style={styles.pageTitle}>Settings</Text>
+          <Text size={28} color="#111827" style={styles.pageTitle}>{t('nav_setting')}</Text>
         </View>
 
         <View style={styles.list}>
           <View style={styles.sectionCard}>
-            <Text size={15} color="#111827" style={styles.cardTitle}>{'\u4e2a\u4eba\u8bbe\u7f6e'}</Text>
+            <Text size={15} color="#111827" style={styles.cardTitle}>{t('setting_profile')}</Text>
             <TouchableOpacity style={styles.profileRow} activeOpacity={0.75} onPress={handlePickAvatar}>
               <View style={styles.profileLeft}>
                 <View style={styles.profileIconWrap}>
                   <Icon name="album" rawSize={16} color="#5b6474" />
                 </View>
-                <Text size={14} color="#111827" style={styles.profileLabel}>{'\u5934\u50cf\u9009\u62e9'}</Text>
+                <Text size={14} color="#111827" style={styles.profileLabel}>{t('setting_profile_avatar')}</Text>
               </View>
               <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
             </TouchableOpacity>
@@ -135,15 +157,49 @@ export default () => {
                 <View style={styles.profileIconWrap}>
                   <Icon name="menu" rawSize={16} color="#5b6474" />
                 </View>
-                <Text size={14} color="#111827" style={styles.profileLabel}>{'\u6635\u79f0\u7f16\u8f91'}</Text>
+                <Text size={14} color="#111827" style={styles.profileLabel}>{t('setting_profile_nickname')}</Text>
               </View>
               <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.sectionCard}>
+            <Text size={15} color="#111827" style={styles.cardTitle}>{t('setting_appearance')}</Text>
+            <TouchableOpacity style={styles.profileRow} activeOpacity={0.75} onPress={handleToggleLanguagePanel}>
+              <View style={styles.profileLeft}>
+                <View style={styles.profileIconWrap}>
+                  <Icon name="setting" rawSize={16} color="#5b6474" />
+                </View>
+                <View>
+                  <Text size={14} color="#111827" style={styles.profileLabel}>{t('setting_basic_lang')}</Text>
+                  <Text size={11} color="#6b7280">{activeLanguageLabel}</Text>
+                </View>
+              </View>
+              <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" style={isLanguagePanelVisible ? styles.chevronExpanded : undefined} />
+            </TouchableOpacity>
+            {isLanguagePanelVisible
+              ? <View style={styles.languageList}>
+                  {languageOptions.map(option => {
+                    const isActive = (activeLangId ?? 'en_us') === option.locale
+                    return (
+                      <TouchableOpacity
+                        key={option.locale}
+                        style={[styles.languageItem, isActive ? styles.languageItemActive : null]}
+                        activeOpacity={0.8}
+                        onPress={() => { handleSelectLanguage(option.locale) }}
+                      >
+                        <Text size={13} color={isActive ? '#7f0df2' : '#374151'} style={styles.languageItemText}>{option.label}</Text>
+                        {isActive ? <View style={styles.languageActiveDot} /> : null}
+                      </TouchableOpacity>
+                    )
+                  })}
+                </View>
+              : null}
+          </View>
+
+          <View style={styles.sectionCard}>
             <View style={styles.cardTitleRow}>
-              <Text size={15} color="#111827" style={styles.cardTitleNoMargin}>{'\u97f3\u4e50\u64ad\u653e'}</Text>
+              <Text size={15} color="#111827" style={styles.cardTitleNoMargin}>{t('setting_player')}</Text>
               <TouchableOpacity style={styles.addBtn} activeOpacity={0.75} onPress={handleAddSource}>
                 <Text size={18} color="#111827" style={styles.addBtnText}>+</Text>
               </TouchableOpacity>
@@ -153,7 +209,7 @@ export default () => {
 
           <View style={styles.sectionCard}>
             <View style={styles.cardTitleRow}>
-              <Text size={15} color="#111827" style={styles.cardTitleNoMargin}>{'\u6570\u636e\u540c\u6b65'}</Text>
+              <Text size={15} color="#111827" style={styles.cardTitleNoMargin}>{t('setting_sync')}</Text>
               <TouchableOpacity style={styles.addBtn} activeOpacity={0.75} onPress={handleAddSyncHost}>
                 <Text size={18} color="#111827" style={styles.addBtnText}>+</Text>
               </TouchableOpacity>
@@ -195,19 +251,19 @@ export default () => {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={styles.modalCard}>
-                <Text size={17} color="#111827" style={styles.modalTitle}>{'\u6635\u79f0\u7f16\u8f91'}</Text>
+                <Text size={17} color="#111827" style={styles.modalTitle}>{t('setting_profile_nickname_edit')}</Text>
                 <Input
-                  placeholder={('\u8bf7\u8f93\u5165\u6635\u79f0')}
+                  placeholder={t('setting_profile_nickname_placeholder')}
                   value={nicknameDraft}
                   onChangeText={setNicknameDraft}
                   style={[styles.modalInput, { backgroundColor: theme['c-primary-background'] }]}
                 />
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={handleCloseNameModal} activeOpacity={0.75}>
-                    <Text size={14} color="#4b5563">{'\u53d6\u6d88'}</Text>
+                    <Text size={14} color="#4b5563">{t('cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleSaveName} activeOpacity={0.85}>
-                    <Text size={14} color="#111827" style={styles.modalBtnPrimaryText}>{'\u4fdd\u5b58'}</Text>
+                    <Text size={14} color="#111827" style={styles.modalBtnPrimaryText}>{t('metadata_edit_modal_confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -337,6 +393,36 @@ const styles = createStyle({
   },
   profileLabel: {
     fontWeight: '500',
+  },
+  chevronExpanded: {
+    transform: [{ rotate: '90deg' }],
+  },
+  languageList: {
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#eef0f3',
+    backgroundColor: '#f9fafb',
+    overflow: 'hidden',
+  },
+  languageItem: {
+    minHeight: 38,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  languageItemActive: {
+    backgroundColor: '#f5f3ff',
+  },
+  languageItemText: {
+    fontWeight: '600',
+  },
+  languageActiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#7f0df2',
   },
   item: {
     borderRadius: 12,

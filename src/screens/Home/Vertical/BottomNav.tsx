@@ -5,14 +5,15 @@ import Text from '@/components/common/Text'
 import { useNavActiveId } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
 import { setNavActiveId } from '@/core/common'
+import { useI18n } from '@/lang'
 import type { InitState } from '@/store/common/state'
 
 const activeColor = '#7f0df2'
 const inactiveColor = '#9ca3af'
 
 const tabs = [
-  { id: 'nav_love', icon: 'album', label: 'Me' },
-  { id: 'nav_setting', icon: 'setting', label: 'Settings' },
+  { id: 'nav_love', icon: 'album' },
+  { id: 'nav_setting', icon: 'setting' },
 ] as const
 
 type TabId = InitState['navActiveId']
@@ -35,6 +36,7 @@ const TabItem = ({ id, icon, label, active, onPress }: {
 }
 
 export default memo(() => {
+  const t = useI18n()
   const activeId = useNavActiveId()
 
   const handlePress = (id: TabId) => {
@@ -49,7 +51,7 @@ export default memo(() => {
           key={tab.id}
           id={tab.id}
           icon={tab.icon}
-          label={tab.label}
+          label={tab.id === 'nav_love' ? t('bottom_nav_me') : t('bottom_nav_settings')}
           active={activeId === tab.id}
           onPress={handlePress}
         />

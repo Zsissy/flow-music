@@ -13,7 +13,7 @@ import { getSearchSetting, saveSearchSetting } from '@/utils/data'
 import { createStyle } from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
 import List, { type ListType } from './List'
-import { addHistoryWord } from '@/core/search/search'
+import { addHistoryWord, setSearchText } from '@/core/search/search'
 
 
 interface SearchInfo {
@@ -84,7 +84,7 @@ export default () => {
   }
   const handleSearch: HeaderBarProps['onSearch'] = (text) => {
     handleHideTipList()
-    searchTipListRef.current?.search(text, layoutHeightRef.current)
+    setSearchText(text)
     headerBarRef.current?.setText(text)
     headerBarRef.current?.blur()
     void addHistoryWord(text)

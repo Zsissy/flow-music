@@ -14,6 +14,7 @@ import { getUserAvatar, getUserName } from '@/utils/data'
 import { search as searchOnlineMusic } from '@/core/search/music'
 import settingState from '@/store/setting/state'
 import { type Source as OnlineSearchSource } from '@/store/search/music/state'
+import { useI18n } from '@/lang'
 
 const SHOW_LISTENING_STATISTICS = false
 const DEFAULT_AVATAR = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAcVca8jY8f-JP2fdUKrHa_XFfVv4N77gpir_i1Q-OurG6uswWSse3yJNJJbZGpnM2tQ050EHA3ZGui2TJgYQCuiLjFgMR3sGA7R602hWmDCqTJ0ABPvqfNVwgSqTKgeY9ojtsoEXx1hi-SmEyE_lTXJnzVRT-XoPMSwq82IZLvnaOAg4IVTJ5Y1lKuksGcqjxLc448H-n0G9AlKAO0ZvRn-jqY3boR70xtpI1fJo8ou-0ZtR-AkL9CmhAzGR0K9nPhk-rt5yI7-tE'
@@ -41,6 +42,7 @@ const stats: Array<{ day: string, height: `${number}%`, active?: boolean }> = [
 ]
 
 export default () => {
+  const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
   const headerTopPadding = statusBarHeight + 8
   const headerHeight = headerTopPadding + 46 + 8
@@ -274,18 +276,18 @@ export default () => {
           <Image style={styles.detailHeroCover} url={selectedListMeta?.pic ?? null} />
           <View style={styles.detailHeroText}>
             <Text size={22} color="#111827" style={styles.profileName} numberOfLines={1}>{selectedListInfo.name}</Text>
-            <Text size={12} color="#6b7280">{`${selectedListMeta?.count ?? 0} songs`}</Text>
+            <Text size={12} color="#6b7280">{t('me_songs_count', { num: selectedListMeta?.count ?? 0 })}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text size={18} color="#111827" style={styles.sectionTitle}>Songs</Text>
+            <Text size={18} color="#111827" style={styles.sectionTitle}>{t('me_songs')}</Text>
           </View>
         </View>
       </>
     )
-  }, [selectedListInfo, selectedListMeta?.pic, selectedListMeta?.count, statusBarHeight])
+  }, [selectedListInfo, selectedListMeta?.pic, selectedListMeta?.count, statusBarHeight, t])
 
   const handleSelectSource = useCallback((action: SourceMenu['action']) => {
     setSearchSource(action)
@@ -301,13 +303,6 @@ export default () => {
   const forceDismissSearchInput = useCallback(() => {
     searchInputRef.current?.blur()
     Keyboard.dismiss()
-    setTimeout(() => {
-      searchInputRef.current?.blur()
-      Keyboard.dismiss()
-    }, 0)
-    setTimeout(() => {
-      Keyboard.dismiss()
-    }, 120)
   }, [])
 
   const runSearch = useCallback(async(keyword: string, source: SourceMenu['action']) => {
@@ -433,12 +428,12 @@ export default () => {
                     onBlur={() => { setSearchInputEditing(false) }}
                     onSubmitEditing={({ nativeEvent }) => { handleSubmitSearch(nativeEvent.text ?? searchText) }}
                     returnKeyType="search"
-                    placeholder="Search songs, artists, playlists..."
+                    placeholder={t('me_search_placeholder')}
                     placeholderTextColor="#9ca3af"
                   />
                 : <TouchableOpacity style={styles.searchInputDisplay} activeOpacity={0.85} onPress={handleBeginSearchInputEdit}>
                     <Text size={13} color={searchText ? '#111827' : '#9ca3af'} numberOfLines={1}>
-                      {searchText || 'Search songs, artists, playlists...'}
+                      {searchText || t('me_search_placeholder')}
                     </Text>
                   </TouchableOpacity>}
               <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
@@ -468,7 +463,7 @@ export default () => {
           : null}
       </View>
     )
-  }, [handleBeginSearchInputEdit, handleExitSearch, handleSelectSource, handleSubmitSearch, isSearchInputEditing, isSourceMenuVisible, searchSource, searchSourceLabel, searchText, statusBarHeight, toggleSourceMenu])
+  }, [handleBeginSearchInputEdit, handleExitSearch, handleSelectSource, handleSubmitSearch, isSearchInputEditing, isSourceMenuVisible, searchSource, searchSourceLabel, searchText, statusBarHeight, t, toggleSourceMenu])
 
   if (isSearchMode) {
     return (
@@ -485,10 +480,10 @@ export default () => {
               <View style={styles.emptyCard}>
                 <Text size={13} color="#6b7280">
                   {searchLoading
-                    ? 'Searching...'
+                    ? t('me_searching')
                     : searchKeyword
-                      ? 'No matched results'
-                      : 'Enter keyword and press search'}
+                      ? t('me_search_no_match')
+                      : t('me_search_hint')}
                 </Text>
               </View>
             )}
@@ -518,7 +513,7 @@ export default () => {
         ListHeaderComponent={detailHeader}
         ListEmptyComponent={(
           <View style={styles.emptyCard}>
-            <Text size={13} color="#6b7280">{detailLoading ? 'Loading songs...' : 'No songs in this playlist'}</Text>
+            <Text size={13} color="#6b7280">{detailLoading ? t('me_loading_songs') : t('me_no_songs')}</Text>
           </View>
         )}
         showsVerticalScrollIndicator={false}
@@ -539,7 +534,7 @@ export default () => {
           <Icon name="search-2" rawSize={18} color="#9ca3af" />
           <TouchableOpacity style={styles.searchInputTrigger} activeOpacity={0.85} onPress={handleEnterSearchMode}>
             <Text size={13} color={searchText ? '#111827' : '#9ca3af'} numberOfLines={1}>
-              {searchText || 'Search songs, artists, playlists...'}
+              {searchText || t('me_search_placeholder')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
@@ -582,7 +577,7 @@ export default () => {
           </View>
           <View style={styles.profileInfo}>
             <Text size={24} color="#111827" style={styles.profileName}>{userName}</Text>
-            <Text size={12} color="#6b7280">Gold Member - 128 Following</Text>
+            <Text size={12} color="#6b7280">{t('me_profile_status')}</Text>
           </View>
         </View>
 
@@ -598,8 +593,8 @@ export default () => {
               <Icon name="love" rawSize={18} color="#ef4444" />
             </View>
             <View style={styles.quickTextBox}>
-              <Text size={13} color="#111827" style={styles.quickTitle}>Liked Songs</Text>
-              <Text size={11} color="#6b7280">{`${likedSongsCount} tracks`}</Text>
+              <Text size={13} color="#111827" style={styles.quickTitle}>{t('me_liked_songs')}</Text>
+              <Text size={11} color="#6b7280">{t('me_tracks_count', { num: likedSongsCount })}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.quickCard, styles.quickCardLast]} activeOpacity={0.8}>
@@ -607,17 +602,17 @@ export default () => {
               <Icon name="download-2" rawSize={18} color="#3b82f6" />
             </View>
             <View style={styles.quickTextBox}>
-              <Text size={13} color="#111827" style={styles.quickTitle}>Local Songs</Text>
-              <Text size={11} color="#6b7280">86 tracks</Text>
+              <Text size={13} color="#111827" style={styles.quickTitle}>{t('me_local_songs')}</Text>
+              <Text size={11} color="#6b7280">{t('me_tracks_count', { num: 86 })}</Text>
             </View>
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text size={18} color="#111827" style={styles.sectionTitle}>My Playlists</Text>
+            <Text size={18} color="#111827" style={styles.sectionTitle}>{t('me_my_playlists')}</Text>
             <TouchableOpacity activeOpacity={0.8} onPress={() => { global.app_event.changeLoveListVisible(true) }}>
-              <Text size={13} color="#7f0df2" style={styles.sectionTag}>+ Create New</Text>
+              <Text size={13} color="#7f0df2" style={styles.sectionTag}>{`+ ${t('me_create_new')}`}</Text>
             </TouchableOpacity>
           </View>
           <View>
@@ -626,7 +621,7 @@ export default () => {
                 <Image style={styles.listPic} url={playlistMetaMap[item.id]?.pic ?? null} />
                 <View style={styles.listInfo}>
                   <Text size={14} color="#111827" style={styles.listTitle}>{item.name}</Text>
-                  <Text size={11} color="#6b7280">{`${playlistMetaMap[item.id]?.count ?? 0} songs`}</Text>
+                  <Text size={11} color="#6b7280">{t('me_songs_count', { num: playlistMetaMap[item.id]?.count ?? 0 })}</Text>
                 </View>
                 <Icon name="chevron-right" rawSize={16} color="#9ca3af" />
               </TouchableOpacity>
