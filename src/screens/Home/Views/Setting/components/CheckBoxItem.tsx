@@ -6,9 +6,13 @@ import CheckBox, { type CheckBoxProps } from '@/components/common/CheckBox'
 import { createStyle } from '@/utils/tools'
 
 
-export default memo((props: CheckBoxProps) => {
+interface Props extends CheckBoxProps {
+  compact?: boolean
+}
+
+export default memo(({ compact = false, ...props }: Props) => {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && styles.containerCompact]}>
       <CheckBox {...props} />
     </View>
   )
@@ -19,6 +23,9 @@ const styles = createStyle({
     paddingLeft: 25,
     // marginTop: -10,
     // marginBottom: 0,
+  },
+  containerCompact: {
+    paddingLeft: 0,
   },
 })
 

@@ -20,10 +20,11 @@ import { SYNC_CODE } from '@/plugins/sync/constants'
 
 const addressRxp = /^https?:\/\/\S+/i
 
-const HostInput = memo(({ setHost, host, disabled }: {
+const HostInput = memo(({ setHost, host, disabled, compact = false }: {
   setHost: (host: string) => void
   host: string
   disabled?: boolean
+  compact?: boolean
 }) => {
   const t = useI18n()
 
@@ -32,15 +33,15 @@ const HostInput = memo(({ setHost, host, disabled }: {
   }, [host])
 
   const setHostAddress = useCallback((value: string, callback: (host: string) => void) => {
-    let hostAddress: string
-    if (addressRxp.test(value)) hostAddress = value.trim()
+    let normalizedHost: string
+    if (addressRxp.test(value)) normalizedHost = value.trim()
     else {
-      hostAddress = ''
+      normalizedHost = ''
       if (value) toast(t('setting_sync_host_value_error_tip'), 'long')
     }
-    callback(hostAddress)
-    if (host == hostAddress) return
-    setHost(hostAddress)
+    callback(normalizedHost)
+    if (host == normalizedHost) return
+    setHost(normalizedHost)
   }, [host, setHost, t])
 
   return (
@@ -50,15 +51,19 @@ const HostInput = memo(({ setHost, host, disabled }: {
       label={t('setting_sync_host_label')}
       onChanged={setHostAddress}
       inputMode="url"
-      // keyboardType="url"
-      placeholder={t('setting_sync_host_value_tip')} />
+      placeholder={t('setting_sync_host_value_tip')}
+      containerStyle={compact ? styles.compactInputContainer : undefined}
+      labelStyle={compact ? styles.compactInputLabel : undefined}
+      inputStyle={compact ? styles.compactInput : undefined}
+    />
   )
 })
 
 
-export default memo(({ host, setHost }: {
+export default memo(({ host, setHost, compact = false }: {
   host: string
   setHost: (host: string) => void
+  compact?: boolean
 }) => {
   const t = useI18n()
   const setIsEnableSync = useCallback((enable: boolean) => {
@@ -145,8 +150,6 @@ export default memo(({ host, setHost }: {
     confirmAlertRef.current?.setVisible(false)
   }, [])
   const handleSetCode = useCallback(() => {
-    // const code = authCode.trim()
-    // if (code.length != 6) return
     void connectServer(host, authCode)
     setAuthCode('')
     confirmAlertRef.current?.setVisible(false)
@@ -154,13 +157,19 @@ export default memo(({ host, setHost }: {
 
   return (
     <>
-      <View style={styles.infoContent}>
-        <CheckBoxItem disabled={!host} check={isEnableSync} label={t('setting_sync_enable')} onChange={handleSetEnableSync} />
-        <Text style={styles.textAddr} size={13}>{t('setting_sync_address', { address })}</Text>
-        <Text style={styles.text} size={13}>{t('setting_sync_status', { status })}</Text>
+      <View style={[styles.infoContent, compact && styles.infoContentCompact]}>
+        <CheckBoxItem
+          compact={compact}
+          disabled={!host}
+          check={isEnableSync}
+          label={t('setting_sync_enable')}
+          onChange={handleSetEnableSync}
+        />
+        <Text style={[styles.textAddr, compact && styles.textCompact]} size={13}>{t('setting_sync_address', { address })}</Text>
+        <Text style={[styles.text, compact && styles.textCompact]} size={13}>{t('setting_sync_status', { status })}</Text>
       </View>
-      <View style={styles.inputContent} >
-        <HostInput setHost={handleUpdateHost} host={host} disabled={isEnableSync} />
+      <View style={[styles.inputContent, compact && styles.inputContentCompact]}>
+        <HostInput setHost={handleUpdateHost} host={host} disabled={isEnableSync} compact={compact} />
       </View>
       <ConfirmAlert
         onCancel={handleCancelSetCode}
@@ -186,6 +195,16 @@ const styles = createStyle({
   infoContent: {
     marginTop: 5,
   },
+  infoContentCompact: {
+    marginTop: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#edf0f3',
+    backgroundColor: '#fafbfc',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
   textAddr: {
     marginLeft: 25,
     marginTop: 5,
@@ -193,8 +212,30 @@ const styles = createStyle({
   text: {
     marginLeft: 25,
   },
+  textCompact: {
+    marginLeft: 26,
+    color: '#6b7280',
+  },
   inputContent: {
     marginTop: 8,
+  },
+  inputContentCompact: {
+    marginTop: 10,
+  },
+  compactInputContainer: {
+    paddingLeft: 0,
+    marginBottom: 6,
+  },
+  compactInputLabel: {
+    marginBottom: 6,
+    color: '#374151',
+  },
+  compactInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#edf0f3',
+    backgroundColor: '#fafbfc',
+    maxWidth: undefined,
   },
   authCodeContent: {
     flexGrow: 1,
@@ -209,25 +250,5 @@ const styles = createStyle({
     flexShrink: 1,
     minWidth: 260,
     borderRadius: 4,
-    // paddingTop: 2,
-    // paddingBottom: 2,
-    // fontSize: 14,
   },
-
-  // tagTypeList: {
-  //   flexDirection: 'row',
-  //   flexWrap: 'wrap',
-  // },
-  // tagButton: {
-  //   // marginRight: 10,
-  //   borderRadius: 4,
-  //   marginRight: 10,
-  //   marginBottom: 10,
-  // },
-  // tagButtonText: {
-  //   paddingLeft: 12,
-  //   paddingRight: 12,
-  //   paddingTop: 8,
-  //   paddingBottom: 8,
-  // },
 })

@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useRef } from 'react'
 
-import { StyleSheet, View, Keyboard } from 'react-native'
+import { StyleSheet, View, Keyboard, type StyleProp, type TextStyle, type ViewStyle } from 'react-native'
 import type { InputType, InputProps } from '@/components/common/Input'
 import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
@@ -11,9 +11,12 @@ export interface InputItemProps extends InputProps {
   value: string
   label: string
   onChanged: (text: string, callback: (vlaue: string) => void) => void
+  containerStyle?: StyleProp<ViewStyle>
+  labelStyle?: StyleProp<TextStyle>
+  inputStyle?: StyleProp<ViewStyle>
 }
 
-export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
+export default memo(({ value, label, onChanged, containerStyle, labelStyle, inputStyle, ...props }: InputItemProps) => {
   const [text, setText] = useState(value)
   const textRef = useRef(value)
   const isMountRef = useRef(false)
@@ -62,13 +65,13 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
     textRef.current = text
   }
   return (
-    <View style={styles.container}>
-      <Text style={styles.label} size={14}>{label}</Text>
+    <View style={[styles.container, containerStyle]}>
+      <Text style={[styles.label, labelStyle]} size={14}>{label}</Text>
       <Input
         value={text}
         ref={inputRef}
         onChangeText={handleSetSelectMode}
-        style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
+        style={[styles.input, { backgroundColor: theme['c-primary-input-background'] }, inputStyle]}
         {...props}
         onBlur={saveValue}
        />

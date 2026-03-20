@@ -47,13 +47,13 @@ export default () => {
 
         <View style={styles.list}>
           <View style={styles.sectionCard}>
-            <Text size={15} color="#111827" style={styles.cardTitle}>个人设置</Text>
+            <Text size={15} color="#111827" style={styles.cardTitle}>{'\u4e2a\u4eba\u8bbe\u7f6e'}</Text>
             <TouchableOpacity style={styles.profileRow} activeOpacity={0.75}>
               <View style={styles.profileLeft}>
                 <View style={styles.profileIconWrap}>
                   <Icon name="album" rawSize={16} color="#5b6474" />
                 </View>
-                <Text size={14} color="#111827" style={styles.profileLabel}>头像选择</Text>
+                <Text size={14} color="#111827" style={styles.profileLabel}>{'\u5934\u50cf\u9009\u62e9'}</Text>
               </View>
               <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
             </TouchableOpacity>
@@ -62,20 +62,20 @@ export default () => {
                 <View style={styles.profileIconWrap}>
                   <Icon name="menu" rawSize={16} color="#5b6474" />
                 </View>
-                <Text size={14} color="#111827" style={styles.profileLabel}>昵称编辑</Text>
+                <Text size={14} color="#111827" style={styles.profileLabel}>{'\u6635\u79f0\u7f16\u8f91'}</Text>
               </View>
               <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.sectionCard}>
-            <Text size={15} color="#111827" style={styles.cardTitle}>音乐播放</Text>
-            <Source />
+            <Text size={15} color="#111827" style={styles.cardTitle}>{'\u97f3\u4e50\u64ad\u653e'}</Text>
+            <Source embedded />
           </View>
 
           <View style={styles.sectionCard}>
-            <Text size={15} color="#111827" style={styles.cardTitle}>数据同步</Text>
-            <Sync />
+            <Text size={15} color="#111827" style={styles.cardTitle}>{'\u6570\u636e\u540c\u6b65'}</Text>
+            <Sync embedded />
           </View>
         </View>
 

@@ -24,14 +24,6 @@ const HistoryListItem = ({ item, index, onRemove, onSelect }: {
   const theme = useTheme()
   const handleSetHost = () => {
     onSelect(index)
-    // setHost({
-    //   host: item.host,
-    //   port: item.port,
-    // })
-    // setSyncHost({
-    //   host: item.host,
-    //   port: item.port,
-    // })
   }
   const handleRemove = () => {
     onRemove(index)
@@ -59,7 +51,6 @@ const HistoryList = forwardRef<HistoryListType, HistoryListProps>(({ onSelect },
   const popupRef = useRef<PopupType>(null)
   const [visible, setVisible] = useState(false)
   const [list, setList] = useState<SyncHistoryItem[]>([])
-  // const isUnmountedRef = useRef(true)
   const theme = useTheme()
   const t = useI18n()
 
@@ -121,8 +112,9 @@ const HistoryList = forwardRef<HistoryListType, HistoryListProps>(({ onSelect },
   )
 })
 
-export default memo(({ setHost }: {
+export default memo(({ setHost, compact = false }: {
   setHost: (host: string) => void
+  compact?: boolean
 }) => {
   const t = useI18n()
   const isEnableSync = useSettingValue('sync.enable')
@@ -139,7 +131,7 @@ export default memo(({ setHost }: {
 
   return (
     <>
-      <View style={styles.btn}>
+      <View style={[styles.btn, compact && styles.btnCompact]}>
         <Button disabled={isEnableSync} onPress={showPopup}>{t('setting_sync_history')}</Button>
       </View>
       <HistoryList ref={listRef} onSelect={handleSelect} />
@@ -152,6 +144,11 @@ const styles = createStyle({
     flexDirection: 'row',
     marginLeft: 25,
     marginBottom: 15,
+  },
+  btnCompact: {
+    marginLeft: 2,
+    marginTop: 6,
+    marginBottom: 4,
   },
   tipText: {
     textAlign: 'center',
