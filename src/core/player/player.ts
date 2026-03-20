@@ -136,7 +136,8 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
-  global.lx.gettingUrlId = createGettingUrlId(musicInfo)
+  const requestId = createGettingUrlId(musicInfo)
+  global.lx.gettingUrlId = requestId
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
@@ -146,7 +147,8 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     global.app_event.error()
     addDelayNextTimeout()
   }).finally(() => {
-    if (musicInfo === playerState.playMusicInfo.musicInfo) {
+    // Clear only the active request id to avoid stale "getting url" lock.
+    if (global.lx.gettingUrlId === requestId) {
       global.lx.gettingUrlId = ''
       clearLoadTimeout()
     }
@@ -597,7 +599,7 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
 export const play = () => {
   if (playerState.playMusicInfo.musicInfo == null) return
   if (isEmpty()) {
-    if (createGettingUrlId(playerState.playMusicInfo.musicInfo) != global.lx.gettingUrlId) setMusicUrl(playerState.playMusicInfo.musicInfo)
+    setMusicUrl(playerState.playMusicInfo.musicInfo, true)
     return
   }
   void setPlay()

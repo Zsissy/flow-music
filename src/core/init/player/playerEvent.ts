@@ -80,6 +80,9 @@ export default () => {
   const handleEmpied = () => {
     clearDelayNextTimeout()
     clearLoadingTimeout()
+    if (!playerState.playMusicInfo.musicInfo || global.lx.isPlayedStop) return
+    // When queue falls back to the silent placeholder track, force reload current song URL.
+    setMusicUrl(playerState.playMusicInfo.musicInfo, true)
   }
 
   const handleWating = () => {

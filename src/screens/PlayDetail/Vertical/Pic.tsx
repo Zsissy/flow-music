@@ -9,7 +9,9 @@ import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { playNext, playPrev, togglePlay } from '@/core/player/player'
 import { useWindowSize } from '@/utils/hooks'
-import { getCoverTheme } from './coverTheme'
+import { createLinearGradientColors, getCoverTheme } from './coverTheme'
+
+const PLAY_BUTTON_COLOR = '#111827'
 
 const toPercent = (now: number, total: number): `${number}%` => {
   if (!total) return '0%'
@@ -22,18 +24,69 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
   const { nowPlayTimeStr, maxPlayTimeStr, progress, maxPlayTime } = useProgress(active)
   const isPlay = useIsPlay()
   const winSize = useWindowSize()
-  const discSize = Math.min(winSize.width * 0.84, 420)
+  const discSize = Math.min(winSize.width * 0.9, 450)
   const coverTheme = useMemo(() => getCoverTheme(musicInfo?.pic ?? `${musicInfo?.id ?? 'track'}`), [musicInfo?.id, musicInfo?.pic])
+  const gradientColors = useMemo(() => createLinearGradientColors(coverTheme, 84), [coverTheme])
+  const radialCenterX = discSize * 0.5
+  const radialCenterY = discSize * 0.28
+  const radialMaxRadius = discSize * 0.74
+  const radialLayersPrimary = useMemo(() => {
+    const count = 36
+    return Array.from({ length: count }, (_, index) => {
+      const t = index / (count - 1) // outer -> inner
+      const radius = radialMaxRadius * (1 - t * 0.84)
+      const size = radius * 2
+      const alpha = 0.01 + Math.pow(t, 1.7) * 0.025
+      return {
+        key: `radial_primary_${index}`,
+        size,
+        opacity: alpha,
+        color: coverTheme.top,
+      }
+    })
+  }, [coverTheme.top, radialMaxRadius])
+  const radialLayersSecondary = useMemo(() => {
+    const count = 20
+    return Array.from({ length: count }, (_, index) => {
+      const t = index / (count - 1) // outer -> inner
+      const radius = radialMaxRadius * (0.9 - t * 0.72)
+      const size = radius * 2
+      const alpha = 0.006 + Math.pow(t, 1.8) * 0.018
+      return {
+        key: `radial_secondary_${index}`,
+        size,
+        opacity: alpha,
+        color: coverTheme.glow,
+      }
+    })
+  }, [coverTheme.glow, radialMaxRadius])
+  const radialLayersHighlight = useMemo(() => {
+    const count = 12
+    return Array.from({ length: count }, (_, index) => {
+      const t = index / (count - 1) // outer -> inner
+      const radius = radialMaxRadius * (0.58 - t * 0.5)
+      const size = radius * 2
+      const alpha = 0.002 + Math.pow(t, 2.2) * 0.009
+      return {
+        key: `radial_highlight_${index}`,
+        size,
+        opacity: alpha,
+        color: coverTheme.accent,
+      }
+    })
+  }, [coverTheme.accent, radialMaxRadius])
 
   const goBack = () => {
     void pop(componentId)
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: coverTheme.bottom }]}>
-      <View style={[styles.bgTintTop, { backgroundColor: coverTheme.top }]} />
-      <View style={[styles.bgTintMiddle, { backgroundColor: coverTheme.middle }]} />
-
+    <View style={styles.container}>
+      <View pointerEvents="none" style={styles.gradientLinearWrap}>
+        {gradientColors.map((color, index) => (
+          <View key={`pic_gradient_${index}`} style={[styles.gradientLinearRow, { backgroundColor: color }]} />
+        ))}
+      </View>
       <View style={[styles.header, { paddingTop: statusBarHeight + 8 }]}>
         <TouchableOpacity style={styles.headerBtn} activeOpacity={0.7} onPress={goBack}>
           <Icon name="chevron-left" rawSize={24} color="#111827" />
@@ -49,6 +102,60 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
 
       <View style={styles.main}>
         <View style={[styles.recordWrap, { width: discSize, height: discSize }]}>
+          {radialLayersPrimary.map(layer => (
+            <View
+              key={layer.key}
+              pointerEvents="none"
+              style={[
+                styles.radialLayer,
+                {
+                  width: layer.size,
+                  height: layer.size,
+                  borderRadius: layer.size / 2,
+                  left: radialCenterX - layer.size / 2,
+                  top: radialCenterY - layer.size / 2,
+                  backgroundColor: layer.color,
+                  opacity: layer.opacity,
+                },
+              ]}
+            />
+          ))}
+          {radialLayersSecondary.map(layer => (
+            <View
+              key={layer.key}
+              pointerEvents="none"
+              style={[
+                styles.radialLayer,
+                {
+                  width: layer.size,
+                  height: layer.size,
+                  borderRadius: layer.size / 2,
+                  left: radialCenterX - layer.size / 2,
+                  top: radialCenterY - layer.size / 2,
+                  backgroundColor: layer.color,
+                  opacity: layer.opacity,
+                },
+              ]}
+            />
+          ))}
+          {radialLayersHighlight.map(layer => (
+            <View
+              key={layer.key}
+              pointerEvents="none"
+              style={[
+                styles.radialLayer,
+                {
+                  width: layer.size,
+                  height: layer.size,
+                  borderRadius: layer.size / 2,
+                  left: radialCenterX - layer.size / 2,
+                  top: radialCenterY - layer.size / 2,
+                  backgroundColor: layer.color,
+                  opacity: layer.opacity,
+                },
+              ]}
+            />
+          ))}
           <View style={styles.recordTone} />
           <View style={styles.record}>
             <View style={styles.recordInner}>
@@ -56,7 +163,9 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
             </View>
           </View>
         </View>
+      </View>
 
+      <View style={styles.bottomPanel}>
         <View style={styles.songInfo}>
           <View style={styles.titleRow}>
             <TouchableOpacity activeOpacity={0.7}>
@@ -72,11 +181,6 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
           <Text size={18} color={coverTheme.accent} numberOfLines={1} style={styles.singer}>
             {musicInfo.singer || 'Neon Dreamer'}
           </Text>
-          <View style={styles.snippetWrap}>
-            <Text size={12} color="#9ca3af" numberOfLines={1}>
-              Searching for the light in the shadows of the street...
-            </Text>
-          </View>
           <View>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: toPercent(progress, maxPlayTime), backgroundColor: coverTheme.accent }]} />
@@ -87,26 +191,26 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
             </View>
           </View>
         </View>
-      </View>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.smallBtn} activeOpacity={0.8}>
-          <Icon name="list-loop" rawSize={22} color="#9ca3af" />
-        </TouchableOpacity>
-        <View style={styles.controlRow}>
-          <TouchableOpacity style={styles.mediumBtn} activeOpacity={0.8} onPress={() => { void playPrev() }}>
-            <Icon name="prevMusic" rawSize={28} color="#374151" />
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.smallBtn} activeOpacity={0.8}>
+            <Icon name="list-loop" rawSize={22} color="#9ca3af" />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.playBtn, { backgroundColor: coverTheme.accent, shadowColor: coverTheme.accent }]} activeOpacity={0.85} onPress={togglePlay}>
-            <Icon name={isPlay ? 'pause' : 'play'} rawSize={34} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.mediumBtn} activeOpacity={0.8} onPress={() => { void playNext() }}>
-            <Icon name="nextMusic" rawSize={28} color="#374151" />
+          <View style={styles.controlRow}>
+            <TouchableOpacity style={styles.mediumBtn} activeOpacity={0.8} onPress={() => { void playPrev() }}>
+              <Icon name="prevMusic" rawSize={28} color="#374151" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.playBtn} activeOpacity={0.85} onPress={togglePlay}>
+              <Icon name={isPlay ? 'pause' : 'play'} rawSize={34} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.mediumBtn} activeOpacity={0.8} onPress={() => { void playNext() }}>
+              <Icon name="nextMusic" rawSize={28} color="#374151" />
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.smallBtn} activeOpacity={0.8}>
+            <Icon name="menu" rawSize={22} color="#9ca3af" />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.smallBtn} activeOpacity={0.8}>
-          <Icon name="menu" rawSize={22} color="#9ca3af" />
-        </TouchableOpacity>
       </View>
 
     </View>
@@ -116,22 +220,21 @@ export default ({ componentId, active }: { componentId: string, active: boolean 
 const styles = createStyle({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
-  bgTintTop: {
+  gradientLinearWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '62%',
-    opacity: 0.62,
+    height: '64%',
+    overflow: 'hidden',
   },
-  bgTintMiddle: {
+  gradientLinearRow: {
+    flex: 1,
+  },
+  radialLayer: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '58%',
-    opacity: 0.34,
   },
   header: {
     paddingHorizontal: 14,
@@ -163,10 +266,12 @@ const styles = createStyle({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingHorizontal: 12,
+    paddingTop: 14,
   },
   recordWrap: {
+    position: 'relative',
+    overflow: 'visible',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -198,8 +303,8 @@ const styles = createStyle({
     shadowOffset: { width: 0, height: 10 },
   },
   recordInner: {
-    width: '46%',
-    height: '46%',
+    width: '68%',
+    height: '68%',
     borderRadius: 999,
     overflow: 'hidden',
     borderWidth: 2,
@@ -215,6 +320,18 @@ const styles = createStyle({
   songInfo: {
     width: '100%',
     maxWidth: 420,
+  },
+  bottomPanel: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 18,
+    paddingHorizontal: 20,
+    paddingBottom: 22,
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -4 },
   },
   titleRow: {
     flexDirection: 'row',
@@ -232,17 +349,12 @@ const styles = createStyle({
     fontWeight: '500',
     marginBottom: 12,
   },
-  snippetWrap: {
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
   progressTrack: {
     height: 4,
     borderRadius: 999,
     backgroundColor: '#e5e7eb',
     overflow: 'hidden',
+    marginTop: 4,
   },
   progressFill: {
     height: '100%',
@@ -256,8 +368,7 @@ const styles = createStyle({
     fontWeight: '700',
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingBottom: 22,
+    paddingTop: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -282,9 +393,11 @@ const styles = createStyle({
     width: 72,
     height: 72,
     borderRadius: 36,
+    backgroundColor: PLAY_BUTTON_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 10,
+    shadowColor: PLAY_BUTTON_COLOR,
     shadowOpacity: 0.35,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },

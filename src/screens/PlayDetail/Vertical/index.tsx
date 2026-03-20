@@ -58,7 +58,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 const styles = createStyle({
   container: {
     flex: 1,
-    backgroundColor: '#f8f6f6',
+    backgroundColor: '#ffffff',
   },
   pagerView: {
     flex: 1,

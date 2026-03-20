@@ -10,7 +10,9 @@ import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import { playNext, playPrev, togglePlay } from '@/core/player/player'
-import { getCoverTheme } from './coverTheme'
+import { createLinearGradientColors, getCoverTheme } from './coverTheme'
+
+const PLAY_BUTTON_COLOR = '#111827'
 
 const defaultLines = [
   'Waiting in a car',
@@ -37,6 +39,7 @@ export default ({ active }: { active: boolean }) => {
   const lyricLines = useLrcSet()
   const listRef = useRef<FlatList<string>>(null)
   const coverTheme = useMemo(() => getCoverTheme(musicInfo?.pic ?? `${musicInfo?.id ?? 'track'}`), [musicInfo?.id, musicInfo?.pic])
+  const gradientColors = useMemo(() => createLinearGradientColors(coverTheme, 84), [coverTheme])
 
   const lines = useMemo(() => {
     if (!lyricLines.length) return defaultLines
@@ -71,9 +74,12 @@ export default ({ active }: { active: boolean }) => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: coverTheme.bottom }]}>
-      <View style={[styles.gradientTop, { backgroundColor: coverTheme.top }]} />
-      <View style={[styles.gradientMiddle, { backgroundColor: coverTheme.middle }]} />
+    <View style={styles.container}>
+      <View pointerEvents="none" style={styles.gradientLinearWrap}>
+        {gradientColors.map((color, index) => (
+          <View key={`lyric_gradient_${index}`} style={[styles.gradientLinearRow, { backgroundColor: color }]} />
+        ))}
+      </View>
       <View style={[styles.header, { paddingTop: statusBarHeight + 8 }]}>
         <TouchableOpacity style={styles.headerBtn} activeOpacity={0.8} onPress={handleGoBack}>
           <Icon name="chevron-left" rawSize={24} color="#0f172a" />
@@ -120,7 +126,7 @@ export default ({ active }: { active: boolean }) => {
             <TouchableOpacity style={styles.controlBtn} activeOpacity={0.8} onPress={() => { void playPrev() }}>
               <Icon name="prevMusic" rawSize={20} color="#111827" />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.playBtn, { backgroundColor: coverTheme.accent, shadowColor: coverTheme.accent }]} activeOpacity={0.85} onPress={togglePlay}>
+            <TouchableOpacity style={styles.playBtn} activeOpacity={0.85} onPress={togglePlay}>
               <Icon name={isPlay ? 'pause' : 'play'} rawSize={24} color="#ffffff" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.controlBtn} activeOpacity={0.8} onPress={() => { void playNext() }}>
@@ -146,22 +152,18 @@ export default ({ active }: { active: boolean }) => {
 const styles = createStyle({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
-  gradientTop: {
+  gradientLinearWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '62%',
-    opacity: 0.6,
+    height: '64%',
+    overflow: 'hidden',
   },
-  gradientMiddle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '58%',
-    opacity: 0.32,
+  gradientLinearRow: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -209,11 +211,13 @@ const styles = createStyle({
     lineHeight: 52,
   },
   bottomPanel: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(15,23,42,0.06)',
+    borderTopColor: 'rgba(15,23,42,0.04)',
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 12,
     paddingBottom: 18,
   },
   progressTrack: {
@@ -265,9 +269,11 @@ const styles = createStyle({
     width: 42,
     height: 42,
     borderRadius: 21,
+    backgroundColor: PLAY_BUTTON_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 3,
+    shadowColor: PLAY_BUTTON_COLOR,
     shadowOpacity: 0.22,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
