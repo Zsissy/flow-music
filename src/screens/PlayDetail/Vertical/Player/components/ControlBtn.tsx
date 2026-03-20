@@ -15,8 +15,8 @@ const PrevBtn = ({ size }: { size: number }) => {
     void playPrev()
   }
   return (
-    <TouchableOpacity style={{ ...styles.cotrolBtn, width: size, height: size }} activeOpacity={0.5} onPress={handlePlayPrev}>
-      <Icon name='prevMusic' color={theme['c-button-font']} rawSize={size * 0.7} />
+    <TouchableOpacity style={{ ...styles.cotrolBtn, ...styles.secondaryBtn, width: size, height: size, backgroundColor: theme['c-200'] }} activeOpacity={0.6} onPress={handlePlayPrev}>
+      <Icon name='prevMusic' color={theme['c-font']} rawSize={size * 0.6} />
     </TouchableOpacity>
   )
 }
@@ -26,8 +26,8 @@ const NextBtn = ({ size }: { size: number }) => {
     void playNext()
   }
   return (
-    <TouchableOpacity style={{ ...styles.cotrolBtn, width: size, height: size }} activeOpacity={0.5} onPress={handlePlayNext}>
-      <Icon name='nextMusic' color={theme['c-button-font']} rawSize={size * 0.7} />
+    <TouchableOpacity style={{ ...styles.cotrolBtn, ...styles.secondaryBtn, width: size, height: size, backgroundColor: theme['c-200'] }} activeOpacity={0.6} onPress={handlePlayNext}>
+      <Icon name='nextMusic' color={theme['c-font']} rawSize={size * 0.6} />
     </TouchableOpacity>
   )
 }
@@ -36,8 +36,19 @@ const TogglePlayBtn = ({ size }: { size: number }) => {
   const theme = useTheme()
   const isPlay = useIsPlay()
   return (
-    <TouchableOpacity style={{ ...styles.cotrolBtn, width: size, height: size }} activeOpacity={0.5} onPress={togglePlay}>
-      <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-button-font']} rawSize={size * 0.7} />
+    <TouchableOpacity
+      style={{
+        ...styles.cotrolBtn,
+        ...styles.primaryBtn,
+        width: size,
+        height: size,
+        backgroundColor: theme['c-primary'],
+        shadowColor: theme['c-primary'],
+      }}
+      activeOpacity={0.7}
+      onPress={togglePlay}
+    >
+      <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-primary-font']} rawSize={size * 0.6} />
     </TouchableOpacity>
   )
 }
@@ -73,8 +84,8 @@ const styles = createStyle({
     alignItems: 'center',
     flexGrow: 1,
     flexShrink: 1,
-    paddingHorizontal: '4%',
-    paddingVertical: 22,
+    paddingHorizontal: '6%',
+    paddingVertical: 18,
     // backgroundColor: 'rgba(0, 0, 0, .1)',
   },
   cotrolBtn: {
@@ -82,7 +93,15 @@ const styles = createStyle({
     alignItems: 'center',
 
     // backgroundColor: '#ccc',
-    shadowOpacity: 1,
-    textShadowRadius: 1,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    borderRadius: 999,
+  },
+  primaryBtn: {
+    shadowOpacity: 0.3,
+  },
+  secondaryBtn: {
+    shadowOpacity: 0,
   },
 })

@@ -1,364 +1,286 @@
-import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
-import { View, FlatList, type FlatListProps, type LayoutChangeEvent, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native'
-// import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet } from '@/plugins/lyric'
+import { useEffect, useMemo, useRef } from 'react'
+import { FlatList, TouchableOpacity, View, type FlatListProps } from 'react-native'
+import { pop } from '@/navigation'
+import commonState from '@/store/common/state'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { useIsPlay, usePlayerMusicInfo, useProgress } from '@/store/player/hook'
+import { useLrcPlay, useLrcSet } from '@/plugins/lyric'
 import { createStyle } from '@/utils/tools'
-// import { useComponentIds } from '@/store/common/hook'
-import { useTheme } from '@/store/theme/hook'
-import { useSettingValue } from '@/store/setting/hook'
-import { AnimatedColorText } from '@/components/common/Text'
-import { setSpText } from '@/utils/pixelRatio'
-import playerState from '@/store/player/state'
-import { scrollTo } from '@/utils/scroll'
-import PlayLine, { type PlayLineType } from '../components/PlayLine'
-// import { screenkeepAwake } from '@/utils/nativeModules/utils'
-// import { log } from '@/utils/log'
-// import { toast } from '@/utils/tools'
+import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
+import Image from '@/components/common/Image'
+import { playNext, playPrev, togglePlay } from '@/core/player/player'
+import { getCoverTheme } from './coverTheme'
 
-type FlatListType = FlatListProps<Line>
+const defaultLines = [
+  'Waiting in a car',
+  'Waiting for a ride in the dark',
+  'At night the city grows',
+  'Look at the horizon line',
+  'The morning star is on its way',
+  'Waiting for the break of day',
+  'The city is my church',
+  'It wraps me in its sparkling light',
+]
 
-// const useLock = () => {
-//   const showCommentRef = useRef(false)
-
-
-//   useEffect(() => {
-//     let appstateListener = AppState.addEventListener('change', (state) => {
-//       switch (state) {
-//         case 'active':
-//           if (showLyricRef.current && !showCommentRef.current) screenkeepAwake()
-//           break
-//         case 'background':
-//           screenUnkeepAwake()
-//           break
-//       }
-//     })
-//     return () => {
-//       appstateListener.remove()
-//     }
-//   }, [])
-//   useEffect(() => {
-//     let listener: ReturnType<typeof onNavigationComponentDidDisappearEvent>
-//     showCommentRef.current = !!componentIds.comment
-//     if (showCommentRef.current) {
-//       if (showLyricRef.current) screenUnkeepAwake()
-//       listener = onNavigationComponentDidDisappearEvent(componentIds.comment as string, () => {
-//         if (showLyricRef.current && AppState.currentState == 'active') screenkeepAwake()
-//       })
-//     }
-
-//     const rm = global.state_event.on('componentIdsUpdated', (ids) => {
-
-//     })
-
-//     return () => {
-//       if (listener) listener.remove()
-//     }
-//   }, [])
-// }
-
-interface LineProps {
-  line: Line
-  lineNum: number
-  activeLine: number
-  onLayout: (lineNum: number, height: number, width: number) => void
+const toPercent = (now: number, total: number): `${number}%` => {
+  if (!total) return '0%'
+  return `${Math.min(100, Math.max(0, Math.floor((now / total) * 100)))}%`
 }
-const LrcLine = memo(({ line, lineNum, activeLine, onLayout }: LineProps) => {
-  const theme = useTheme()
-  const lrcFontSize = useSettingValue('playDetail.vertical.style.lrcFontSize')
-  const textAlign = useSettingValue('playDetail.style.align')
-  const size = lrcFontSize / 10
-  const lineHeight = setSpText(size) * 1.3
 
-  const colors = useMemo(() => {
-    const active = activeLine == lineNum
-    return active ? [
-      theme['c-primary'],
-      theme['c-primary-alpha-200'],
-      1,
-    ] as const : [
-      theme['c-350'],
-      theme['c-300'],
-      0.6,
-    ] as const
-  }, [activeLine, lineNum, theme])
-
-  const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
-    onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width)
-  }
-
-
-  // textBreakStrategy="simple" 用于解决某些设备上字体被截断的问题
-  // https://stackoverflow.com/a/72822360
-  return (
-    <View style={styles.line} onLayout={handleLayout}>
-      <AnimatedColorText style={{
-        ...styles.lineText,
-        textAlign,
-        lineHeight,
-      }} textBreakStrategy="simple" color={colors[0]} opacity={colors[2]} size={size}>{line.text}</AnimatedColorText>
-      {
-        line.extendedLyrics.map((lrc, index) => {
-          return (<AnimatedColorText style={{
-            ...styles.lineTranslationText,
-            textAlign,
-            lineHeight: lineHeight * 0.8,
-          }} textBreakStrategy="simple" key={index} color={colors[1]} opacity={colors[2]} size={size * 0.8}>{lrc}</AnimatedColorText>)
-        })
-      }
-    </View>
-  )
-}, (prevProps, nextProps) => {
-  return prevProps.line === nextProps.line &&
-    prevProps.activeLine != nextProps.lineNum &&
-    nextProps.activeLine != nextProps.lineNum
-})
-const wait = async() => new Promise(resolve => setTimeout(resolve, 100))
-
-export default () => {
+export default ({ active }: { active: boolean }) => {
+  const statusBarHeight = useStatusbarHeight()
+  const musicInfo = usePlayerMusicInfo()
+  const isPlay = useIsPlay()
+  const { line } = useLrcPlay(active)
+  const { progress, maxPlayTime } = useProgress(active)
   const lyricLines = useLrcSet()
-  const { line } = useLrcPlay()
-  const flatListRef = useRef<FlatList>(null)
-  const playLineRef = useRef<PlayLineType>(null)
-  const isPauseScrollRef = useRef(true)
-  const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
-  const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
-  const lineRef = useRef({ line: 0, prevLine: 0 })
-  const isFirstSetLrc = useRef(true)
-  const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
-  const listLayoutInfoRef = useRef<{ spaceHeight: number, lineHeights: number[] }>({ spaceHeight: 0, lineHeights: [] })
-  const scrollCancelRef = useRef<(() => void) | null>(null)
-  const isShowLyricProgressSetting = useSettingValue('playDetail.isShowLyricProgressSetting')
-  // useLock()
-  // const [imgUrl, setImgUrl] = useState(null)
-  // const theme = useGetter('common', 'theme')
-  // const { onLayout, ...layout } = useLayout()
+  const listRef = useRef<FlatList<string>>(null)
+  const coverTheme = useMemo(() => getCoverTheme(musicInfo?.pic ?? `${musicInfo?.id ?? 'track'}`), [musicInfo?.id, musicInfo?.pic])
 
-  // useEffect(() => {
-  //   const url = playMusicInfo ? playMusicInfo.musicInfo.img : null
-  //   if (imgUrl == url) return
-  //   setImgUrl(url)
-  // // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [playMusicInfo])
-
-  // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
-  const handleScrollToActive = (index = lineRef.current.line) => {
-    if (index < 0) return
-    if (flatListRef.current) {
-      // console.log('handleScrollToActive', index)
-      if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
-        let offset = listLayoutInfoRef.current.spaceHeight
-        for (let line = 0; line < index; line++) {
-          offset += listLayoutInfoRef.current.lineHeights[line]
-        }
-        offset += (listLayoutInfoRef.current.lineHeights[line] ?? 0) / 2
-        try {
-          scrollCancelRef.current = scrollTo(flatListRef.current, scrollInfoRef.current, offset - scrollInfoRef.current.layoutMeasurement.height * 0.42, 600, () => {
-            scrollCancelRef.current = null
-          })
-        } catch {}
-      } else {
-        if (scrollCancelRef.current) {
-          scrollCancelRef.current()
-          scrollCancelRef.current = null
-        }
-        try {
-          flatListRef.current.scrollToIndex({
-            index,
-            animated: true,
-            viewPosition: 0.42,
-          })
-        } catch {}
-      }
-    }
-  }
-
-  const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollInfoRef.current = nativeEvent
-    if (isPauseScrollRef.current) {
-      playLineRef.current?.updateScrollInfo(nativeEvent)
-    }
-  }
-  const handleScrollBeginDrag = () => {
-    isPauseScrollRef.current = true
-    playLineRef.current?.setVisible(true)
-    if (delayScrollTimeout.current) {
-      clearTimeout(delayScrollTimeout.current)
-      delayScrollTimeout.current = null
-    }
-    if (scrollTimoutRef.current) {
-      clearTimeout(scrollTimoutRef.current)
-      scrollTimoutRef.current = null
-    }
-    if (scrollCancelRef.current) {
-      scrollCancelRef.current()
-      scrollCancelRef.current = null
-    }
-  }
-
-  const onScrollEndDrag = () => {
-    if (!isPauseScrollRef.current) return
-    if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
-    scrollTimoutRef.current = setTimeout(() => {
-      playLineRef.current?.setVisible(false)
-      scrollTimoutRef.current = null
-      isPauseScrollRef.current = false
-      if (!playerState.isPlay) return
-      handleScrollToActive()
-    }, 3000)
-  }
-
-
-  useEffect(() => {
-    return () => {
-      if (delayScrollTimeout.current) {
-        clearTimeout(delayScrollTimeout.current)
-        delayScrollTimeout.current = null
-      }
-      if (scrollTimoutRef.current) {
-        clearTimeout(scrollTimoutRef.current)
-        scrollTimoutRef.current = null
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    // linesRef.current = lyricLines
-    listLayoutInfoRef.current.lineHeights = []
-    lineRef.current.prevLine = 0
-    lineRef.current.line = 0
-    if (!flatListRef.current) return
-    flatListRef.current.scrollToOffset({
-      offset: 0,
-      animated: false,
-    })
-    if (!lyricLines.length) return
-    playLineRef.current?.updateLyricLines(lyricLines)
-    requestAnimationFrame(() => {
-      if (isFirstSetLrc.current) {
-        isFirstSetLrc.current = false
-        setTimeout(() => {
-          isPauseScrollRef.current = false
-          handleScrollToActive()
-        }, 100)
-      } else {
-        if (delayScrollTimeout.current) clearTimeout(delayScrollTimeout.current)
-        delayScrollTimeout.current = setTimeout(() => {
-          handleScrollToActive(0)
-        }, 100)
-      }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const lines = useMemo(() => {
+    if (!lyricLines.length) return defaultLines
+    const textLines = lyricLines.map(item => item.text).filter(Boolean)
+    return textLines.length ? textLines : defaultLines
   }, [lyricLines])
 
   useEffect(() => {
-    if (line < 0) return
-    lineRef.current.prevLine = lineRef.current.line
-    lineRef.current.line = line
-    if (!flatListRef.current || isPauseScrollRef.current) return
+    if (!active || line < 0 || line >= lines.length) return
+    try {
+      listRef.current?.scrollToIndex({ index: line, viewPosition: 0.42, animated: true })
+    } catch {}
+  }, [active, line, lines.length])
 
-    if (line - lineRef.current.prevLine != 1) {
-      handleScrollToActive()
-      return
-    }
-
-    delayScrollTimeout.current = setTimeout(() => {
-      delayScrollTimeout.current = null
-      handleScrollToActive()
-    }, 600)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [line])
-
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
-      playLineRef.current?.updateLyricLines(lyricLines)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isShowLyricProgressSetting])
-
-  const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
-    void wait().then(() => {
-      handleScrollToActive(info.index)
-    })
+  const handleGoBack = () => {
+    void pop(commonState.componentIds.playDetail!)
   }
 
-  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
-    listLayoutInfoRef.current.lineHeights[lineNum] = height
-    playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
-  }, [])
-
-  const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    listLayoutInfoRef.current.spaceHeight = nativeEvent.layout.height
-    playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
-  }, [])
-
-  const handlePlayLine = useCallback((time: number) => {
-    playLineRef.current?.setVisible(false)
-    global.app_event.setProgress(time)
-  }, [])
-
-  const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
+  const renderItem: FlatListProps<string>['renderItem'] = ({ item, index }) => {
+    const activeLine = index === line
     return (
-      <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} />
+      <View style={styles.lineWrap}>
+        <Text
+          size={activeLine ? 34 : 28}
+          color={activeLine ? coverTheme.accent : 'rgba(15,23,42,0.35)'}
+          style={activeLine ? styles.activeLineText : styles.lineText}
+        >
+          {item}
+        </Text>
+      </View>
     )
   }
-  const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
-
-  const spaceComponent = useMemo(() => (
-    <View style={styles.space} onLayout={handleSpaceLayout}></View>
-  ), [handleSpaceLayout])
 
   return (
-    <>
+    <View style={[styles.container, { backgroundColor: coverTheme.bottom }]}>
+      <View style={[styles.gradientTop, { backgroundColor: coverTheme.top }]} />
+      <View style={[styles.gradientMiddle, { backgroundColor: coverTheme.middle }]} />
+      <View style={[styles.header, { paddingTop: statusBarHeight + 8 }]}>
+        <TouchableOpacity style={styles.headerBtn} activeOpacity={0.8} onPress={handleGoBack}>
+          <Icon name="chevron-left" rawSize={24} color="#0f172a" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text size={10} color="#6b7280" style={styles.headerUpper}>Now Playing</Text>
+          <Text size={14} color="#111827" numberOfLines={1} style={styles.headerTitle}>
+            {(musicInfo.name || 'Midnight City') + ' - ' + (musicInfo.singer || 'M83')}
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.headerBtn} activeOpacity={0.8}>
+          <Icon name="menu" rawSize={22} color="#0f172a" />
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={lyricLines}
+        ref={listRef}
+        data={lines}
         renderItem={renderItem}
-        keyExtractor={getkey}
-        style={styles.container}
-        ref={flatListRef}
+        keyExtractor={(item, index) => `${index}_${item}`}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={spaceComponent}
-        ListFooterComponent={spaceComponent}
-        onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
-        fadingEdgeLength={100}
-        initialNumToRender={Math.max(line + 10, 10)}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
-        onScroll={handleScroll}
+        onScrollToIndexFailed={() => {}}
       />
-      { isShowLyricProgressSetting ? <PlayLine ref={playLineRef} onPlayLine={handlePlayLine} /> : null }
-    </>
+
+      <View style={styles.bottomPanel}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: toPercent(progress, maxPlayTime), backgroundColor: coverTheme.accent }]} />
+        </View>
+
+        <View style={styles.playerRow}>
+          <View style={styles.playerLeft}>
+            <Image style={styles.cover} url={musicInfo.pic} />
+            <View style={styles.playerText}>
+              <Text size={13} color="#111827" numberOfLines={1} style={styles.playerTitle}>
+                {musicInfo.name || 'Midnight City'}
+              </Text>
+              <Text size={11} color="#6b7280" numberOfLines={1}>{musicInfo.singer || 'M83'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.controls}>
+            <TouchableOpacity style={styles.controlBtn} activeOpacity={0.8} onPress={() => { void playPrev() }}>
+              <Icon name="prevMusic" rawSize={20} color="#111827" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.playBtn, { backgroundColor: coverTheme.accent, shadowColor: coverTheme.accent }]} activeOpacity={0.85} onPress={togglePlay}>
+              <Icon name={isPlay ? 'pause' : 'play'} rawSize={24} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlBtn} activeOpacity={0.8} onPress={() => { void playNext() }}>
+              <Icon name="nextMusic" rawSize={20} color="#111827" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.rightActions}>
+            <TouchableOpacity style={styles.smallIconBtn} activeOpacity={0.8}>
+              <Icon name="share" rawSize={18} color="#6b7280" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.smallIconBtn} activeOpacity={0.8}>
+              <Icon name="menu" rawSize={18} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+    </View>
   )
 }
 
 const styles = createStyle({
   container: {
     flex: 1,
-    paddingLeft: 20,
-    paddingRight: 20,
-    // backgroundColor: 'rgba(0,0,0,0.1)',
   },
-  space: {
-    paddingTop: '100%',
+  gradientTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '62%',
+    opacity: 0.6,
   },
-  line: {
-    paddingTop: 10,
-    paddingBottom: 10,
-    // opacity: 0,
+  gradientMiddle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '58%',
+    opacity: 0.32,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  headerUpper: {
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  headerTitle: {
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingTop: 36,
+    paddingBottom: 24,
+  },
+  lineWrap: {
+    marginBottom: 18,
   },
   lineText: {
-    textAlign: 'center',
-    // fontSize: 16,
-    // lineHeight: 20,
-    // paddingTop: 5,
-    // paddingBottom: 5,
-    // opacity: 0,
+    fontWeight: '700',
+    lineHeight: 42,
   },
-  lineTranslationText: {
-    textAlign: 'center',
-    // fontSize: 13,
-    // lineHeight: 17,
-    paddingTop: 5,
-    // paddingBottom: 5,
+  activeLineText: {
+    fontWeight: '700',
+    lineHeight: 52,
+  },
+  bottomPanel: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(15,23,42,0.06)',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 18,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15,23,42,0.1)',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  progressFill: {
+    height: '100%',
+  },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  cover: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+  },
+  playerText: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 10,
+  },
+  playerTitle: {
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  controlBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 3,
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallIconBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
 })

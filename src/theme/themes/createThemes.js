@@ -10,9 +10,9 @@ const defaultThemes = [
     name: '现代浅色',
     isDark: false,
     config: {
-      primary: 'rgb(24, 24, 27)',
-      font: 'rgb(9, 9, 11)',
-      'c-app-background': 'rgb(248, 250, 252)',
+      primary: 'rgb(127, 13, 242)',
+      font: 'rgb(18, 18, 18)',
+      'c-app-background': 'rgb(249, 249, 249)',
       'c-main-background': 'rgb(255, 255, 255)',
       'bg-image': '',
       'bg-image-position': 'center',

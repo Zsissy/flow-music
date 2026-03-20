@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react'
+import { memo, useRef, useMemo } from 'react'
 
 import { View, StyleSheet } from 'react-native'
 
@@ -25,8 +25,8 @@ const Title = () => {
 
   return (
     <View style={styles.titleContent}>
-      <Text numberOfLines={1} style={styles.title}>{musicInfo.name}</Text>
-      <Text numberOfLines={1} style={styles.title} size={12} color={theme['c-font-label']}>{musicInfo.singer}</Text>
+      <Text numberOfLines={1} style={styles.title} size={16}>{musicInfo.name}</Text>
+      <Text numberOfLines={1} style={styles.subtitle} size={11} color={theme['c-font-label']}>{musicInfo.singer}</Text>
     </View>
   )
 }
@@ -34,6 +34,7 @@ const Title = () => {
 export default memo(() => {
   const popupRef = useRef<SettingPopupType>(null)
   const statusBarHeight = useStatusbarHeight()
+  const theme = useTheme()
 
   const back = () => {
     void pop(commonState.componentIds.playDetail!)
@@ -41,9 +42,14 @@ export default memo(() => {
   const showSetting = () => {
     popupRef.current?.show()
   }
+  const headerStyle = useMemo(() => ({
+    height: HEADER_HEIGHT + statusBarHeight,
+    paddingTop: statusBarHeight,
+    backgroundColor: theme['c-main-background'],
+  }), [statusBarHeight, theme])
 
   return (
-    <View style={{ height: HEADER_HEIGHT + statusBarHeight, paddingTop: statusBarHeight }} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_header}>
+    <View style={headerStyle} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_header}>
       <StatusBar />
       <View style={styles.container}>
         <Btn icon="chevron-left" onPress={back} />
@@ -60,18 +66,22 @@ export default memo(() => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    // justifyContent: 'center',
     height: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
   titleContent: {
     flex: 1,
     paddingHorizontal: 5,
-    // alignItems: 'center',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    // flex: 1,
-    // textAlign: 'center',
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  subtitle: {
+    textAlign: 'center',
   },
   icon: {
     paddingLeft: 4,

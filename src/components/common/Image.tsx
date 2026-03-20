@@ -1,11 +1,9 @@
-import { useTheme } from '@/store/theme/hook'
 import { BorderRadius } from '@/theme'
 import { createStyle } from '@/utils/tools'
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { View, type ViewProps, Image as _Image, StyleSheet } from 'react-native'
 import FastImage, { type FastImageProps } from '@d11/react-native-fast-image'
-import Text from './Text'
-import { useLayout } from '@/utils/hooks'
+import loadFailPic from '../../../assets/img/loadfail.png'
 export type { OnLoadEvent } from '@d11/react-native-fast-image'
 
 export interface ImageProps extends ViewProps {
@@ -22,50 +20,61 @@ export const defaultHeaders = {
 }
 
 const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], nativeID: ImageProps['nativeID'] }) => {
-  const theme = useTheme()
-  const { onLayout, width } = useLayout()
-  const size = width * 0.36
-
   return (
-    <View style={StyleSheet.compose({ ...styles.emptyPic, backgroundColor: theme['c-primary-light-900-alpha-200'], gap: size * 0.1 }, style)} onLayout={onLayout} nativeID={nativeID}>
-      <Text size={size} color={theme['c-primary-light-400-alpha-200']}>L</Text>
-      <Text size={size} color={theme['c-primary-light-400-alpha-200']} style={styles.text}>X</Text>
+    <View style={StyleSheet.compose(styles.emptyPicWrap, style)} nativeID={nativeID}>
+      <_Image source={loadFailPic} style={styles.emptyPicImage} resizeMode="cover" />
     </View>
   )
 })
 
 const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, style, onError, nativeID }: ImageProps) => {
+  const [isLoaded, setLoaded] = useState(false)
   const [isError, setError] = useState(false)
+
+  const handleLoad = useCallback(() => {
+    setLoaded(true)
+    setError(false)
+  }, [])
+
   const handleError = useCallback(() => {
+    setLoaded(false)
     setError(true)
     onError?.(url!)
   }, [onError, url])
+
   useEffect(() => {
+    setLoaded(false)
     setError(false)
   }, [url])
+
   let uri = typeof url == 'number'
     ? _Image.resolveAssetSource(url).uri
     : url?.startsWith('/')
       ? 'file://' + url
       : url
-  const showDefault = useMemo(() => !uri || isError, [isError, uri])
+
+  if (!uri) return <EmptyPic style={style} nativeID={nativeID} />
+
+  const showNetworkImage = isLoaded && !isError
+
   return (
-    showDefault ? <EmptyPic style={style} nativeID={nativeID} />
-      : (
-          <FastImage
-            style={style}
-            transition="fade"
-            source={{
-              uri: uri!,
-              headers: defaultHeaders,
-              priority: FastImage.priority.normal,
-              cache: cache === false ? 'web' : 'immutable',
-            }}
-            onError={handleError}
-            resizeMode={resizeMode}
-            nativeID={nativeID}
-          />
-        )
+    <View style={StyleSheet.compose(styles.imageWrap, style)}>
+      <_Image source={loadFailPic} style={styles.imageLayer} resizeMode="cover" />
+      <FastImage
+        style={StyleSheet.compose(styles.imageLayer, showNetworkImage ? undefined : styles.hiddenLayer)}
+        transition="fade"
+        source={{
+          uri,
+          headers: defaultHeaders,
+          priority: FastImage.priority.normal,
+          cache: cache === false ? 'web' : 'immutable',
+        }}
+        onError={handleError}
+        onLoad={handleLoad}
+        resizeMode={resizeMode}
+        nativeID={nativeID}
+      />
+    </View>
   )
 }, (prevProps, nextProps) => {
   return prevProps.url == nextProps.url &&
@@ -82,13 +91,23 @@ export const clearMemoryCache = async() => {
 export default Image
 
 const styles = createStyle({
-  emptyPic: {
+  emptyPicWrap: {
     borderRadius: BorderRadius.normal,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  text: {
-    paddingLeft: 2,
+  emptyPicImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageWrap: {
+    overflow: 'hidden',
+  },
+  imageLayer: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  hiddenLayer: {
+    opacity: 0,
   },
 })

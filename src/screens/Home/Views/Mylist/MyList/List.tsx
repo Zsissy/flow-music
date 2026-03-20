@@ -4,7 +4,7 @@ import { View, TouchableOpacity, FlatList, type NativeScrollEvent, type NativeSy
 import { Icon } from '@/components/common/Icon'
 
 import { useTheme } from '@/store/theme/hook'
-import { useActiveListId, useListFetching, useMyList } from '@/store/list/hook'
+import { useActiveListId, useMyList } from '@/store/list/hook'
 import { createStyle } from '@/utils/tools'
 import { LIST_SCROLL_POSITION_KEY } from '@/config/constant'
 import { getListPosition, saveListPosition } from '@/utils/data'
@@ -12,11 +12,10 @@ import { setActiveList } from '@/core/list'
 import Text from '@/components/common/Text'
 import { type Position } from './ListMenu'
 import { scaleSizeH } from '@/utils/pixelRatio'
-import Loading from '@/components/common/Loading'
 
 type FlatListType = FlatListProps<LX.List.MyListInfo>
 
-const ITEM_HEIGHT = scaleSizeH(40)
+const ITEM_HEIGHT = scaleSizeH(56)
 
 const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
   onPress: (item: LX.List.MyListInfo) => void
@@ -27,8 +26,6 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
 }) => {
   const theme = useTheme()
   const moreButtonRef = useRef<TouchableOpacity>(null)
-  const fetching = useListFetching(item.id)
-
   const active = activeId == item.id
 
   const handleShowMenu = () => {
@@ -45,15 +42,13 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
   }
 
   return (
-    <View style={{ ...styles.listItem, height: ITEM_HEIGHT }}>
-      {
-        active
-          ? <Icon style={styles.listActiveIcon} name="chevron-right" size={12} color={theme['c-primary-font']} />
-          : null
-      }
-      { fetching ? <Loading color={active ? theme['c-primary-font'] : theme['c-font']} style={styles.loading} /> : null }
+    <View style={{ ...styles.listItem, height: ITEM_HEIGHT, borderColor: theme['c-border-background'], backgroundColor: theme['c-main-background'] }}>
+      <View style={{ ...styles.cover, backgroundColor: theme['c-primary-light-900-alpha-200'] }}>
+        <Text size={12} color={theme['c-primary']}>{item.name.slice(0, 1)}</Text>
+      </View>
       <TouchableOpacity style={styles.listName} onPress={handlePress}>
-        <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>{item.name}</Text>
+        <Text numberOfLines={1} color={active ? theme['c-primary'] : theme['c-font']}>{item.name}</Text>
+        <Text size={11} color={theme['c-500']}>Playlist</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.listMoreBtn}>
         <Icon name="dots-vertical" color={theme['c-350']} size={12} />
@@ -148,29 +143,25 @@ const styles = createStyle({
     height: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 5,
-    paddingLeft: 5,
-    // borderBottomWidth: BorderWidths.normal,
+    paddingRight: 8,
+    paddingLeft: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 8,
   },
-  listActiveIcon: {
-    // width: 18,
-    marginLeft: 3,
-    // paddingRight: 5,
-    textAlign: 'center',
-  },
-  loading: {
-    marginLeft: 5,
+  cover: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listName: {
     height: '100%',
-    // height: 46,
-    // paddingTop: 12,
-    // paddingBottom: 12,
     justifyContent: 'center',
     flexGrow: 1,
     flexShrink: 1,
-    paddingLeft: 5,
-    // backgroundColor: 'rgba(0,0,0,0.1)',
+    paddingLeft: 10,
   },
   // listNameText: {
   //   // height: 46,
@@ -179,12 +170,8 @@ const styles = createStyle({
   listMoreBtn: {
     height: '100%',
     width: 36,
-    // height: 46,
-    // paddingTop: 12,
-    // paddingBottom: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: 'rgba(0,0,0,0.1)',
   },
 })
 

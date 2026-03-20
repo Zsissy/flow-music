@@ -13,8 +13,8 @@ import SectionHeader from '@/components/modern/SectionHeader'
 import Surface from '@/components/modern/Surface'
 import { Icon } from '@/components/common/Icon'
 
-const CARD_WIDTH = 240
-const CARD_GAP = 14
+const CARD_WIDTH = 160
+const CARD_GAP = 12
 const PREVIEW_COUNT = 3
 
 const BoardCard = memo(({
@@ -37,15 +37,17 @@ const BoardCard = memo(({
   const topSinger = preview?.[0]?.singer ?? ''
 
   return (
-    <Surface style={styles.card} padding={0}>
-      <Image style={styles.cardImage} url={cover} />
-      <View style={styles.cardOverlay} />
+    <View style={styles.cardWrap}>
+      <Surface style={styles.card} padding={0}>
+        <Image style={styles.cardImage} url={cover} />
+        <View style={styles.cardOverlay} />
+      </Surface>
       <View style={styles.cardBody}>
         <Text size={14} numberOfLines={1}>{item.name}</Text>
         <Text size={12} color={theme['c-500']} numberOfLines={1}>{topName}</Text>
         <Text size={11} color={theme['c-500']} numberOfLines={1}>{topSinger}</Text>
       </View>
-    </Surface>
+    </View>
   )
 })
 
@@ -102,13 +104,26 @@ export default memo(({ onSearch }: { onSearch: (keyword: string) => void }) => {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <SectionHeader title={t('discover_for_you')} subtitle={t('discover_for_you_sub')} />
       <FlatList
-        data={cardData}
-        horizontal
-        showsHorizontalScrollIndicator={false}
+        data={cardData.slice(0, 4)}
+        numColumns={2}
+        scrollEnabled={false}
         keyExtractor={(item) => item.id}
         renderItem={renderCard}
-        contentContainerStyle={styles.cardRow}
+        columnWrapperStyle={styles.cardRow}
+        contentContainerStyle={styles.cardGrid}
       />
+
+      <SectionHeader title={t('discover_top_picks')} subtitle={t('discover_top_picks_sub')} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mixRow}>
+        {topList.slice(0, 8).map((item) => (
+          <View key={item.id} style={styles.mixItem}>
+            <Surface style={styles.mixCoverWrap} padding={4}>
+              <Image style={styles.mixCover} url={item.meta.picUrl} />
+            </Surface>
+            <Text size={11} numberOfLines={1} style={styles.mixLabel}>{item.name}</Text>
+          </View>
+        ))}
+      </ScrollView>
 
       <SectionHeader title={t('discover_hot_search')} subtitle={t('discover_hot_search_sub')} />
       <View style={styles.chipRow}>
@@ -154,29 +169,56 @@ const styles = createStyle({
   content: {
     paddingBottom: 24,
   },
-  cardRow: {
+  cardGrid: {
     paddingHorizontal: 14,
-    paddingBottom: 10,
+    paddingBottom: 8,
+  },
+  cardRow: {
+    justifyContent: 'space-between',
+  },
+  cardWrap: {
+    width: '48%',
+    marginBottom: 14,
   },
   card: {
-    width: CARD_WIDTH,
+    width: '100%',
     overflow: 'hidden',
-    marginRight: CARD_GAP,
   },
   cardImage: {
     width: '100%',
-    height: 140,
+    height: 150,
   },
   cardOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 60,
-    backgroundColor: 'rgba(0,0,0,0.12)',
+    height: 50,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   cardBody: {
-    padding: 12,
+    paddingTop: 8,
+  },
+  mixRow: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+  },
+  mixItem: {
+    width: 96,
+    marginRight: 12,
+    alignItems: 'center',
+  },
+  mixCoverWrap: {
+    borderRadius: 999,
+  },
+  mixCover: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  mixLabel: {
+    marginTop: 8,
+    textAlign: 'center',
   },
   chipRow: {
     flexDirection: 'row',

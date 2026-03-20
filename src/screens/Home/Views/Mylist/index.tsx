@@ -13,11 +13,15 @@ import Surface from '@/components/modern/Surface'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
+import { useMyList } from '@/store/list/hook'
 
 export default () => {
   const [activeTab, setActiveTab] = useState<'playlists' | 'favorites' | 'downloads' | 'recent'>('playlists')
   const t = useI18n()
   const theme = useTheme()
+  const lists = useMyList()
+  const userPlaylistsCount = Math.max(0, lists.length - 2)
+  const stats = [40, 65, 85, 50, 70, 95, 30]
 
   useEffect(() => {
     if (activeTab === 'favorites') setActiveList(LIST_IDS.LOVE)
@@ -31,7 +35,16 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <SectionHeader title={t('nav_love')} />
+      <View style={styles.profileWrap}>
+        <View style={[styles.avatar, { backgroundColor: theme['c-primary-light-700-alpha-300'] }]}>
+          <Text size={18} color={theme['c-primary']}>LX</Text>
+        </View>
+        <View style={styles.profileText}>
+          <Text size={18} numberOfLines={1}>MusicFlow</Text>
+          <Text size={12} color={theme['c-500']}>{`${userPlaylistsCount} playlists • Light Mode`}</Text>
+        </View>
+      </View>
+      <SectionHeader title="Quick Access" />
       <View style={styles.quickRow}>
         {quickItems.map(item => {
           const active = activeTab === item.id
@@ -58,6 +71,16 @@ export default () => {
           )
         })}
       </View>
+      <SectionHeader title="Listening Statistics" subtitle="Last 7 Days" />
+      <Surface style={styles.statsCard} padding={12}>
+        <View style={styles.statsRow}>
+          {stats.map((h, index) => (
+            <View key={`${h}_${index}`} style={styles.statsCol}>
+              <View style={[styles.statsBar, { height: `${h}%`, backgroundColor: theme['c-primary-light-700-alpha-300'] }]} />
+            </View>
+          ))}
+        </View>
+      </Surface>
       <View style={styles.content}>
         {
           activeTab === 'playlists'
@@ -90,6 +113,24 @@ const styles = createStyle({
     flex: 1,
     paddingTop: 6,
   },
+  profileWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileText: {
+    marginLeft: 12,
+    flex: 1,
+  },
   quickRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -114,6 +155,26 @@ const styles = createStyle({
     marginHorizontal: 16,
     marginBottom: 10,
     maxHeight: 260,
+  },
+  statsCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 120,
+  },
+  statsCol: {
+    flex: 1,
+    marginHorizontal: 4,
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  statsBar: {
+    width: '100%',
+    borderRadius: 4,
   },
   playlistSongs: {
     flex: 1,
