@@ -100,7 +100,7 @@ def getNpmPackageJson() {
 def npmPackageJson = getNpmPackageJson()
 def verCode = npmPackageJson["versionCode"]
 def verName = npmPackageJson["version"]
-def applicationName = npmPackageJson["name"]
+def applicationName = "lux-music-mobile"
 
 android {
     ndkVersion rootProject.ext.ndkVersion

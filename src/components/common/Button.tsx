@@ -5,7 +5,7 @@ import { Pressable, type PressableProps, StyleSheet, type View, type ViewProps }
 
 
 export interface BtnProps extends PressableProps {
-  ripple?: PressableProps['android_ripple']
+  ripple?: PressableProps['android_ripple'] | false
   style?: ViewProps['style']
   onChangeText?: (value: string) => void
   onClearText?: () => void
@@ -20,10 +20,13 @@ export interface BtnType {
 export default forwardRef<BtnType, BtnProps>(({ ripple: propsRipple = {}, disabled, children, style, ...props }, ref) => {
   const theme = useTheme()
   const btnRef = useRef<View>(null)
-  const ripple = useMemo(() => ({
-    color: theme['c-border-background'],
-    ...propsRipple,
-  }), [theme, propsRipple])
+  const ripple = useMemo(() => {
+    if (propsRipple === false) return undefined
+    return {
+      color: theme['c-border-background'],
+      ...propsRipple,
+    }
+  }, [theme, propsRipple])
 
   useImperativeHandle(ref, () => ({
     measure(callback) {

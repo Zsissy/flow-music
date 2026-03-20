@@ -20,11 +20,10 @@ import { SYNC_CODE } from '@/plugins/sync/constants'
 
 const addressRxp = /^https?:\/\/\S+/i
 
-const HostInput = memo(({ setHost, host, disabled, compact = false }: {
+const HostInput = memo(({ setHost, host, disabled }: {
   setHost: (host: string) => void
   host: string
   disabled?: boolean
-  compact?: boolean
 }) => {
   const t = useI18n()
 
@@ -52,9 +51,6 @@ const HostInput = memo(({ setHost, host, disabled, compact = false }: {
       onChanged={setHostAddress}
       inputMode="url"
       placeholder={t('setting_sync_host_value_tip')}
-      containerStyle={compact ? styles.compactInputContainer : undefined}
-      labelStyle={compact ? styles.compactInputLabel : undefined}
-      inputStyle={compact ? styles.compactInput : undefined}
     />
   )
 })
@@ -79,20 +75,22 @@ export default memo(({ host, setHost, compact = false }: {
 
   useEffect(() => {
     isUnmountedRef.current = false
-    void getSyncHost().then(host => {
+    void getSyncHost().then(savedHost => {
       if (isUnmountedRef.current) return
-      setHost(host)
+      setHost(savedHost)
     })
-    void getWIFIIPV4Address().then(address => {
-      if (isUnmountedRef.current) return
-      setAddress(address)
-    })
+    if (!compact) {
+      void getWIFIIPV4Address().then(localAddress => {
+        if (isUnmountedRef.current) return
+        setAddress(localAddress)
+      })
+    }
 
     return () => {
       isUnmountedRef.current = true
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [compact])
 
   useEffect(() => {
     switch (syncStatus.message) {
@@ -118,32 +116,37 @@ export default memo(({ host, setHost, compact = false }: {
   }, [host, setIsEnableSync])
 
 
-  const handleUpdateHost = useCallback((h: string) => {
-    if (h == host) return
-    void setSyncHost(h)
-    setHost(h)
+  const handleUpdateHost = useCallback((newHost: string) => {
+    if (newHost == host) return
+    void setSyncHost(newHost)
+    setHost(newHost)
   }, [host, setHost])
 
 
   const status = useMemo(() => {
-    let status
+    let currentStatus
     switch (syncStatus.message) {
       case SYNC_CODE.msgBlockedIp:
-        status = t('setting_sync_code_blocked_ip')
+        currentStatus = t('setting_sync_code_blocked_ip')
         break
       case SYNC_CODE.authFailed:
-        status = t('setting_sync_code_fail')
+        currentStatus = t('setting_sync_code_fail')
         break
       default:
-        status = syncStatus.message
+        currentStatus = syncStatus.message
           ? syncStatus.message
           : syncStatus.status
             ? t('setting_sync_status_enabled')
             : t('sync_status_disabled')
         break
     }
-    return status
+    return currentStatus
   }, [syncStatus.message, syncStatus.status, t])
+
+  const enableLabel = useMemo(() => {
+    if (!compact) return t('setting_sync_enable')
+    return `${t('setting_sync_enable')}[${status}]`
+  }, [compact, status, t])
 
   const handleCancelSetCode = useCallback(() => {
     setSyncMessage('')
@@ -162,20 +165,34 @@ export default memo(({ host, setHost, compact = false }: {
           compact={compact}
           disabled={!host}
           check={isEnableSync}
-          label={t('setting_sync_enable')}
+          label={enableLabel}
           onChange={handleSetEnableSync}
         />
-        <Text style={[styles.textAddr, compact && styles.textCompact]} size={13}>{t('setting_sync_address', { address })}</Text>
-        <Text style={[styles.text, compact && styles.textCompact]} size={13}>{t('setting_sync_status', { status })}</Text>
+        {
+          compact
+            ? null
+            : (
+                <>
+                  <Text style={styles.textAddr} size={13}>{t('setting_sync_address', { address })}</Text>
+                  <Text style={styles.text} size={13}>{t('setting_sync_status', { status })}</Text>
+                </>
+              )
+        }
       </View>
-      <View style={[styles.inputContent, compact && styles.inputContentCompact]}>
-        <HostInput setHost={handleUpdateHost} host={host} disabled={isEnableSync} compact={compact} />
-      </View>
+      {
+        compact
+          ? null
+          : (
+              <View style={styles.inputContent}>
+                <HostInput setHost={handleUpdateHost} host={host} disabled={isEnableSync} />
+              </View>
+            )
+      }
       <ConfirmAlert
         onCancel={handleCancelSetCode}
         onConfirm={handleSetCode}
         ref={confirmAlertRef}
-        >
+      >
         <View style={styles.authCodeContent}>
           <Text style={styles.authCodeLabel}>{t('setting_sync_code_label')}</Text>
           <Input
@@ -212,30 +229,8 @@ const styles = createStyle({
   text: {
     marginLeft: 25,
   },
-  textCompact: {
-    marginLeft: 26,
-    color: '#6b7280',
-  },
   inputContent: {
     marginTop: 8,
-  },
-  inputContentCompact: {
-    marginTop: 10,
-  },
-  compactInputContainer: {
-    paddingLeft: 0,
-    marginBottom: 6,
-  },
-  compactInputLabel: {
-    marginBottom: 6,
-    color: '#374151',
-  },
-  compactInput: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#edf0f3',
-    backgroundColor: '#fafbfc',
-    maxWidth: undefined,
   },
   authCodeContent: {
     flexGrow: 1,

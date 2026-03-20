@@ -1,25 +1,24 @@
-import { useRef, forwardRef, useImperativeHandle, useState } from 'react'
-import { View } from 'react-native'
+import { useMemo, useRef, forwardRef, useImperativeHandle, useState } from 'react'
+import { TextInput, View } from 'react-native'
 
-// import music from '@/utils/musicSdk'
-// import InsetShadow from 'react-native-inset-shadow'
-import SourceSelector, {
-  type SourceSelectorType as _SourceSelectorType,
-  type SourceSelectorProps as _SourceSelectorProps,
-} from '@/components/SourceSelector'
-import { type SearchInputProps } from './SearchInput'
+import DorpDownMenu, { type DorpDownMenuProps as _DorpDownMenuProps } from '@/components/common/DorpDownMenu'
+import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { Icon } from '@/components/common/Icon'
 import { type Source as MusicSource } from '@/store/search/music/state'
 import { type Source as SonglistSource } from '@/store/search/songlist/state'
-import SearchBar, { type SearchBarType } from '@/components/modern/SearchBar'
+import { type SearchInputProps } from './SearchInput'
 
 type Sources = Readonly<Array<MusicSource | SonglistSource>>
-type SourceSelectorProps = _SourceSelectorProps<Sources>
-type SourceSelectorType = _SourceSelectorType<Sources>
+
+interface SourceMenu {
+  action: Sources[number]
+  label: string
+}
 
 export interface HeaderBarProps {
-  onSourceChange: SourceSelectorProps['onSourceChange']
+  onSourceChange: (source: Sources[number]) => void
   onTipSearch: SearchInputProps['onChangeText']
   onSearch: SearchInputProps['onSubmit']
   onHideTipList: SearchInputProps['onBlur']
@@ -27,44 +26,81 @@ export interface HeaderBarProps {
 }
 
 export interface HeaderBarType {
-  setSourceList: SourceSelectorType['setSourceList']
+  setSourceList: (list: Sources, activeSource: Sources[number]) => void
   setText: (text: string) => void
   blur: () => void
 }
 
+const getSourceLabel = (source: Sources[number]) => {
+  return source === 'all' ? 'all' : source
+}
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(({ onSourceChange, onTipSearch, onSearch, onHideTipList, onShowTipList }, ref) => {
-  const sourceSelectorRef = useRef<SourceSelectorType>(null)
-  const searchBarRef = useRef<SearchBarType>(null)
+  const inputRef = useRef<TextInput>(null)
   const theme = useTheme()
   const [text, setText] = useState('')
+  const [sourceList, setSourceList] = useState<Sources>([])
+  const [source, setSource] = useState<Sources[number]>('kw')
 
   useImperativeHandle(ref, () => ({
-    setSourceList(list, source) {
-      sourceSelectorRef.current?.setSourceList(list, source)
+    setSourceList(list, activeSource) {
+      setSourceList(list)
+      setSource(activeSource)
     },
-    setText(text) {
-      setText(text)
+    setText(value) {
+      setText(value)
     },
     blur() {
-      searchBarRef.current?.blur()
+      inputRef.current?.blur()
     },
   }), [])
 
+  const menus = useMemo<SourceMenu[]>(() => {
+    return [...sourceList].sort((a, b) => getSourceLabel(a).localeCompare(getSourceLabel(b))).map((item) => ({
+      action: item,
+      label: getSourceLabel(item),
+    }))
+  }, [sourceList])
+
+  type DorpDownMenuProps = _DorpDownMenuProps<typeof menus>
+
+  const handleSelectSource: DorpDownMenuProps['onPress'] = ({ action }) => {
+    setSource(action)
+    onSourceChange(action)
+  }
 
   return (
     <View style={{ ...styles.searchBar, backgroundColor: theme['c-app-background'] }}>
-      <SearchBar
-        ref={searchBarRef}
-        value={text}
-        onChangeText={(v) => { setText(v); onTipSearch(v) }}
-        onSubmitEditing={({ nativeEvent }) => onSearch(nativeEvent.text)}
-        onBlur={onHideTipList}
-        onTouchStart={onShowTipList}
-        placeholder="Search songs, artists, albums..."
-      />
-      <View style={styles.selector}>
-        <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
+      <View style={[styles.searchInputWrap, { backgroundColor: theme['c-main-background'], borderColor: theme['c-border-background'] }]}>
+        <Icon name="search-2" size={16} color={theme['c-500']} />
+        <TextInput
+          ref={inputRef}
+          value={text}
+          onChangeText={(value) => { setText(value); onTipSearch(value) }}
+          onSubmitEditing={({ nativeEvent }) => {
+            onSearch(nativeEvent.text)
+          }}
+          onBlur={onHideTipList}
+          onTouchStart={onShowTipList}
+          placeholder="Search songs, artists, albums..."
+          placeholderTextColor={theme['c-500']}
+          selectionColor={theme['c-primary']}
+          style={[styles.input, { color: theme['c-font'] }]}
+        />
+
+        <DorpDownMenu
+          menus={menus}
+          onPress={handleSelectSource}
+          activeId={source}
+          center
+          btnStyle={styles.sourceMenuBtn}
+          btnRipple={false}
+        >
+          <View style={styles.sourceCapsule}>
+            <Text size={12} color="#111827" style={styles.sourceText}>{getSourceLabel(source)}</Text>
+            <Icon name="chevron-right-2" rawSize={13} color="#6b7280" style={styles.sourceChevron} />
+          </View>
+        </DorpDownMenu>
       </View>
     </View>
   )
@@ -77,8 +113,44 @@ const styles = createStyle({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  selector: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
+  searchInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingLeft: 12,
+    paddingRight: 8,
+    height: 44,
+  },
+  input: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  sourceMenuBtn: {
+    marginLeft: 8,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  sourceCapsule: {
+    height: 28,
+    minWidth: 62,
+    borderRadius: 14,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceText: {
+    fontWeight: '600',
+  },
+  sourceChevron: {
+    marginLeft: 2,
+    transform: [{ rotate: '90deg' }],
   },
 })
+

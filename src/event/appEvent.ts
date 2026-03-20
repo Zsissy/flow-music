@@ -201,6 +201,14 @@ export class AppEvent extends Event {
   selectSyncMode(mode: LX.Sync.ModeType) {
     this.emit('selectSyncMode', mode)
   }
+
+  userAvatarUpdated(path: string | null) {
+    this.emit('userAvatarUpdated', path)
+  }
+
+  userNameUpdated(name: string) {
+    this.emit('userNameUpdated', name)
+  }
 }
 
 

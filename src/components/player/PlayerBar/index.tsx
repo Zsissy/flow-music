@@ -62,7 +62,8 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
     else uncollectMusic()
   }
 
-  if (autoHidePlayBar && keyboardShown) return null
+  const keepPlayBarOnKeyboard = Reflect.get(global.lx, 'keepPlayBarOnKeyboard') === true
+  if (autoHidePlayBar && keyboardShown && !keepPlayBarOnKeyboard) return null
 
   return (
     <View style={styles.wrap}>

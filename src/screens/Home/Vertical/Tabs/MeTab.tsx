@@ -1,16 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, ScrollView, TextInput, TouchableOpacity, View, type ListRenderItem } from 'react-native'
+import { FlatList, Keyboard, ScrollView, TextInput, TouchableOpacity, View, type ListRenderItem } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
+import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import { createStyle } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useMyList } from '@/store/list/hook'
-import { getListMusics, setActiveList } from '@/core/list'
+import { addListMusics, getListMusics, removeListMusics, setActiveList } from '@/core/list'
 import { playList } from '@/core/player/player'
 import { LIST_IDS } from '@/config/constant'
+import { getUserAvatar, getUserName } from '@/utils/data'
+import { search as searchOnlineMusic } from '@/core/search/music'
+import settingState from '@/store/setting/state'
+import { type Source as OnlineSearchSource } from '@/store/search/music/state'
 
 const SHOW_LISTENING_STATISTICS = false
+const DEFAULT_AVATAR = 'https://lh3.googleusercontent.com/aida-public/AB6AXuAcVca8jY8f-JP2fdUKrHa_XFfVv4N77gpir_i1Q-OurG6uswWSse3yJNJJbZGpnM2tQ050EHA3ZGui2TJgYQCuiLjFgMR3sGA7R602hWmDCqTJ0ABPvqfNVwgSqTKgeY9ojtsoEXx1hi-SmEyE_lTXJnzVRT-XoPMSwq82IZLvnaOAg4IVTJ5Y1lKuksGcqjxLc448H-n0G9AlKAO0ZvRn-jqY3boR70xtpI1fJo8ou-0ZtR-AkL9CmhAzGR0K9nPhk-rt5yI7-tE'
+const DEFAULT_USER_NAME = 'Alex Rivera'
+const sourceMenus = [
+  { action: 'all', label: 'all' },
+  { action: 'kg', label: 'kg' },
+  { action: 'kw', label: 'kw' },
+  { action: 'mg', label: 'mg' },
+  { action: 'tx', label: 'tx' },
+  { action: 'wy', label: 'wy' },
+] as const
+
+type SourceMenu = typeof sourceMenus[number]
+type SearchResultItem = LX.Music.MusicInfoOnline
 
 const stats: Array<{ day: string, height: `${number}%`, active?: boolean }> = [
   { day: 'Mon', height: '40%' },
@@ -31,10 +49,32 @@ export default () => {
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [detailSongs, setDetailSongs] = useState<LX.Music.MusicInfo[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string>(DEFAULT_AVATAR)
+  const [userName, setUserName] = useState<string>(DEFAULT_USER_NAME)
+  const [searchText, setSearchText] = useState('')
+  const [searchSource, setSearchSource] = useState<SourceMenu['action']>('all')
+  const [isSourceMenuVisible, setSourceMenuVisible] = useState(false)
+  const [isSearchMode, setSearchMode] = useState(false)
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
+  const [lovedSongMap, setLovedSongMap] = useState<Record<string, true>>({})
   const detailRequestIdRef = useRef(0)
+  const searchRequestIdRef = useRef(0)
+  const searchInputRef = useRef<TextInput>(null)
+  const musicAddModalRef = useRef<MusicAddModalType>(null)
+  const setKeepPlayBarVisible = (visible: boolean) => {
+    Reflect.set(global.lx, 'keepPlayBarOnKeyboard', visible)
+  }
   const lovePlaylist = useMemo(() => playlists.find(list => list.id === LIST_IDS.LOVE) ?? null, [playlists])
   const displayPlaylists = useMemo(() => playlists.filter(list => list.id !== LIST_IDS.LOVE), [playlists])
   const likedSongsCount = lovePlaylist ? playlistMetaMap[lovePlaylist.id]?.count ?? 0 : 0
+
+  useEffect(() => {
+    return () => {
+      setKeepPlayBarVisible(false)
+    }
+  }, [])
 
   const pickCover = (list: LX.Music.MusicInfo[]) => {
     for (const song of list) {
@@ -74,6 +114,15 @@ export default () => {
     if (showLoading) setDetailLoading(false)
   }, [])
 
+  const refreshLovedSongMap = useCallback(async() => {
+    const list = await getListMusics(LIST_IDS.LOVE)
+    const next: Record<string, true> = {}
+    for (const song of list) {
+      next[String(song.id)] = true
+    }
+    setLovedSongMap(next)
+  }, [])
+
   useEffect(() => {
     void updatePlaylistMeta(playlists.map(list => list.id))
     if (selectedListId && !playlists.some(list => list.id === selectedListId)) {
@@ -83,8 +132,49 @@ export default () => {
   }, [playlists, selectedListId, updatePlaylistMeta])
 
   useEffect(() => {
+    void refreshLovedSongMap()
+  }, [refreshLovedSongMap])
+
+  useEffect(() => {
+    let isUnmounted = false
+    void getUserAvatar().then((path) => {
+      if (isUnmounted) return
+      setAvatarUrl(path ?? DEFAULT_AVATAR)
+    })
+
+    const handleAvatarUpdate = (path: string | null) => {
+      setAvatarUrl(path ?? DEFAULT_AVATAR)
+    }
+    global.app_event.on('userAvatarUpdated', handleAvatarUpdate)
+
+    return () => {
+      isUnmounted = true
+      global.app_event.off('userAvatarUpdated', handleAvatarUpdate)
+    }
+  }, [])
+
+  useEffect(() => {
+    let isUnmounted = false
+    void getUserName().then((name) => {
+      if (isUnmounted) return
+      setUserName(name ?? DEFAULT_USER_NAME)
+    })
+
+    const handleNameUpdate = (name: string) => {
+      setUserName(name.trim() ? name : DEFAULT_USER_NAME)
+    }
+    global.app_event.on('userNameUpdated', handleNameUpdate)
+
+    return () => {
+      isUnmounted = true
+      global.app_event.off('userNameUpdated', handleNameUpdate)
+    }
+  }, [])
+
+  useEffect(() => {
     const handleMusicUpdate = (ids: string[]) => {
       void updatePlaylistMeta(ids)
+      if (ids.includes(LIST_IDS.LOVE)) void refreshLovedSongMap()
       if (selectedListId && ids.includes(selectedListId)) {
         void loadDetailSongs(selectedListId)
       }
@@ -93,7 +183,7 @@ export default () => {
     return () => {
       global.app_event.off('myListMusicUpdate', handleMusicUpdate)
     }
-  }, [loadDetailSongs, selectedListId, updatePlaylistMeta])
+  }, [loadDetailSongs, refreshLovedSongMap, selectedListId, updatePlaylistMeta])
 
   const handleOpenList = (list: LX.List.MyListInfo) => {
     setSelectedListId(list.id)
@@ -109,6 +199,43 @@ export default () => {
     if (targetIndex < 0) targetIndex = fallbackIndex
     if (targetIndex < 0) return
     await playList(listId, targetIndex)
+  }, [])
+  const handlePlaySearchSong = useCallback(async(song: LX.Music.MusicInfoOnline) => {
+    await addListMusics(LIST_IDS.DEFAULT, [song], settingState.setting['list.addMusicLocationType'])
+    const latestList = await getListMusics(LIST_IDS.DEFAULT)
+    let targetIndex = latestList.findIndex(item => item.id === song.id && item.source === song.source)
+    if (targetIndex < 0) targetIndex = latestList.findIndex(item => item.id === song.id)
+    if (targetIndex < 0) return
+    setActiveList(LIST_IDS.DEFAULT)
+    await playList(LIST_IDS.DEFAULT, targetIndex)
+  }, [])
+  const handleToggleSearchLoved = useCallback(async(song: LX.Music.MusicInfoOnline) => {
+    const songId = String(song.id)
+    const isLoved = Boolean(lovedSongMap[songId])
+    setLovedSongMap((prev) => {
+      const next = { ...prev }
+      if (isLoved) delete next[songId]
+      else next[songId] = true
+      return next
+    })
+    try {
+      if (isLoved) await removeListMusics(LIST_IDS.LOVE, [songId])
+      else await addListMusics(LIST_IDS.LOVE, [song], settingState.setting['list.addMusicLocationType'])
+    } catch {
+      setLovedSongMap((prev) => {
+        const next = { ...prev }
+        if (isLoved) next[songId] = true
+        else delete next[songId]
+        return next
+      })
+    }
+  }, [lovedSongMap])
+  const handleShowMusicAddModal = useCallback((song: LX.Music.MusicInfoOnline) => {
+    musicAddModalRef.current?.show({
+      musicInfo: song,
+      listId: '',
+      isMove: false,
+    })
   }, [])
   const selectedListInfo = selectedListId ? playlists.find(list => list.id === selectedListId) ?? null : null
   const selectedListMeta = selectedListInfo ? playlistMetaMap[selectedListInfo.id] : null
@@ -159,6 +286,200 @@ export default () => {
     )
   }, [selectedListInfo, selectedListMeta?.pic, selectedListMeta?.count, statusBarHeight])
 
+  const handleSelectSource = useCallback((action: SourceMenu['action']) => {
+    setSearchSource(action)
+    setSourceMenuVisible(false)
+  }, [])
+  const toggleSourceMenu = useCallback(() => {
+    setSourceMenuVisible((visible) => !visible)
+  }, [])
+  const searchSourceLabel = useMemo(() => {
+    const target = sourceMenus.find(item => item.action === searchSource)
+    return target?.label ?? 'kw'
+  }, [searchSource])
+
+  const runSearch = useCallback(async(keyword: string, source: SourceMenu['action']) => {
+    const requestId = ++searchRequestIdRef.current
+    setSearchLoading(true)
+    try {
+      const lowerKeyword = keyword.trim().toLowerCase()
+      if (!lowerKeyword) {
+        if (requestId !== searchRequestIdRef.current) return
+        setSearchResults([])
+        return
+      }
+      const results = await searchOnlineMusic(lowerKeyword, 1, source as OnlineSearchSource)
+      if (requestId !== searchRequestIdRef.current) return
+      setSearchResults(results)
+    } catch {
+      if (requestId !== searchRequestIdRef.current) return
+      setSearchResults([])
+    } finally {
+      if (requestId === searchRequestIdRef.current) setSearchLoading(false)
+    }
+  }, [])
+
+  const handleSubmitSearch = useCallback((text: string) => {
+    const input = (text || searchText).trim()
+    setSearchText(text || searchText)
+
+    if (!input) {
+      setSearchMode(false)
+      setSearchKeyword('')
+      setSearchResults([])
+      setSourceMenuVisible(false)
+      searchInputRef.current?.blur()
+      Keyboard.dismiss()
+      return
+    }
+
+    setSearchKeyword(input)
+    setSearchMode(true)
+    setSearchResults([])
+    setSourceMenuVisible(false)
+    void runSearch(input, searchSource)
+    searchInputRef.current?.blur()
+    Keyboard.dismiss()
+  }, [runSearch, searchSource, searchText])
+
+  const handleEnterSearchMode = useCallback(() => {
+    setSearchMode(true)
+    setSourceMenuVisible(false)
+    setKeepPlayBarVisible(false)
+  }, [])
+
+  const handleExitSearch = useCallback(() => {
+    setSearchMode(false)
+    setSearchKeyword('')
+    setSearchResults([])
+    setSourceMenuVisible(false)
+    searchInputRef.current?.blur()
+    Keyboard.dismiss()
+  }, [])
+
+  useEffect(() => {
+    if (!isSearchMode || !searchKeyword) return
+    void runSearch(searchKeyword, searchSource)
+  }, [isSearchMode, searchKeyword, searchSource, runSearch])
+
+  const renderSearchResultItem: ListRenderItem<SearchResultItem> = useCallback(({ item }) => {
+    const isLoved = Boolean(lovedSongMap[String(item.id)])
+    return (
+      <View style={styles.songItem}>
+        <TouchableOpacity
+          style={styles.songMain}
+          activeOpacity={0.8}
+          onPress={() => { void handlePlaySearchSong(item) }}
+        >
+          <Image style={styles.songPic} url={item.meta.picUrl ?? null} />
+          <View style={styles.songInfo}>
+            <Text size={14} color="#111827" style={styles.listTitle} numberOfLines={1}>{item.name}</Text>
+            <View style={styles.songMetaRow}>
+              <Text size={10} color="#7f0df2" style={styles.songSource}>{item.source.toUpperCase()}</Text>
+              <Text size={11} color="#6b7280" numberOfLines={1}>{item.singer}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        <View style={styles.searchSongActions}>
+          <Text size={11} color="#9ca3af" style={styles.searchSongInterval}>{item.interval ?? '--:--'}</Text>
+          <TouchableOpacity style={styles.songActionBtn} activeOpacity={0.8} onPress={() => { void handleToggleSearchLoved(item) }}>
+            {isLoved
+              ? <Text size={17} color="#ef4444" style={styles.searchLoveFilled}>{'\u2665'}</Text>
+              : <Icon name="love" rawSize={17} color="#9ca3af" />}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.songActionBtn} activeOpacity={0.8} onPress={() => { handleShowMusicAddModal(item) }}>
+            <Text size={18} color="#9ca3af" style={styles.searchAddText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )
+  }, [handlePlaySearchSong, handleShowMusicAddModal, handleToggleSearchLoved, lovedSongMap])
+
+  const searchHeader = useMemo(() => {
+    return (
+      <View style={[styles.searchResultHeader, { paddingTop: statusBarHeight + 8 }]}>
+        <View style={styles.searchResultRow}>
+          <TouchableOpacity style={styles.detailBackBtn} activeOpacity={0.8} onPress={handleExitSearch}>
+            <Icon name="chevron-left" rawSize={20} color="#111827" />
+          </TouchableOpacity>
+          <View style={styles.searchResultSearchWrap}>
+            <View style={styles.searchWrap}>
+              <Icon name="search-2" rawSize={18} color="#9ca3af" />
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+                disableFullscreenUI
+                onSubmitEditing={({ nativeEvent }) => { handleSubmitSearch(nativeEvent.text ?? searchText) }}
+                returnKeyType="search"
+                placeholder="Search songs, artists, playlists..."
+                placeholderTextColor="#9ca3af"
+              />
+              <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
+                <View style={styles.sourceCapsule}>
+                  <Text size={12} color="#111827" style={styles.sourceText}>{searchSourceLabel}</Text>
+                  <Icon name="chevron-right-2" rawSize={13} color="#6b7280" style={styles.sourceChevron} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        {isSourceMenuVisible
+          ? <View style={styles.searchResultSourcePanelWrap}>
+              <View style={styles.sourcePanel}>
+                {sourceMenus.map(menu => (
+                  <TouchableOpacity
+                    key={menu.action}
+                    activeOpacity={0.85}
+                    style={[styles.sourcePanelItem, menu.action === searchSource ? styles.sourcePanelItemActive : null]}
+                    onPress={() => { handleSelectSource(menu.action) }}
+                  >
+                    <Text size={12} color={menu.action === searchSource ? '#7f0df2' : '#374151'} style={styles.sourcePanelText}>{menu.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          : null}
+      </View>
+    )
+  }, [handleExitSearch, handleSelectSource, handleSubmitSearch, isSourceMenuVisible, searchSource, searchSourceLabel, searchText, statusBarHeight, toggleSourceMenu])
+
+  if (isSearchMode) {
+    return (
+      <>
+        <FlatList
+          style={[styles.container, styles.searchResultList]}
+          contentContainerStyle={[styles.detailContent, styles.searchResultContent]}
+          data={searchResults}
+          renderItem={renderSearchResultItem}
+          keyExtractor={(item, index) => `${item.id}_${item.source}_${index}`}
+          ListHeaderComponent={searchHeader}
+          ListEmptyComponent={(
+            <View style={styles.emptyCard}>
+              <Text size={13} color="#6b7280">
+                {searchLoading
+                  ? 'Searching...'
+                  : searchKeyword
+                    ? 'No matched results'
+                    : 'Enter keyword and press search'}
+              </Text>
+            </View>
+          )}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          windowSize={8}
+          maxToRenderPerBatch={12}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+        />
+        <MusicAddModal ref={musicAddModalRef} />
+      </>
+    )
+  }
+
   if (selectedListInfo) {
     return (
       <FlatList
@@ -189,12 +510,32 @@ export default () => {
       <View style={[styles.header, styles.headerFloating, { paddingTop: headerTopPadding }]}>
         <View style={styles.searchWrap}>
           <Icon name="search-2" rawSize={18} color="#9ca3af" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search songs, artists, playlists..."
-            placeholderTextColor="#9ca3af"
-          />
+          <TouchableOpacity style={styles.searchInputTrigger} activeOpacity={0.85} onPress={handleEnterSearchMode}>
+            <Text size={13} color={searchText ? '#111827' : '#9ca3af'} numberOfLines={1}>
+              {searchText || 'Search songs, artists, playlists...'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
+            <View style={styles.sourceCapsule}>
+              <Text size={12} color="#111827" style={styles.sourceText}>{searchSourceLabel}</Text>
+              <Icon name="chevron-right-2" rawSize={13} color="#6b7280" style={styles.sourceChevron} />
+            </View>
+          </TouchableOpacity>
         </View>
+        {isSourceMenuVisible
+          ? <View style={styles.sourcePanel}>
+              {sourceMenus.map(menu => (
+                <TouchableOpacity
+                  key={menu.action}
+                  activeOpacity={0.85}
+                  style={[styles.sourcePanelItem, menu.action === searchSource ? styles.sourcePanelItemActive : null]}
+                  onPress={() => { handleSelectSource(menu.action) }}
+                >
+                  <Text size={12} color={menu.action === searchSource ? '#7f0df2' : '#374151'} style={styles.sourcePanelText}>{menu.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          : null}
       </View>
 
       <ScrollView
@@ -209,11 +550,11 @@ export default () => {
           <View style={styles.avatarWrap}>
             <Image
               style={styles.avatar}
-              url="https://lh3.googleusercontent.com/aida-public/AB6AXuAcVca8jY8f-JP2fdUKrHa_XFfVv4N77gpir_i1Q-OurG6uswWSse3yJNJJbZGpnM2tQ050EHA3ZGui2TJgYQCuiLjFgMR3sGA7R602hWmDCqTJ0ABPvqfNVwgSqTKgeY9ojtsoEXx1hi-SmEyE_lTXJnzVRT-XoPMSwq82IZLvnaOAg4IVTJ5Y1lKuksGcqjxLc448H-n0G9AlKAO0ZvRn-jqY3boR70xtpI1fJo8ou-0ZtR-AkL9CmhAzGR0K9nPhk-rt5yI7-tE"
+              url={avatarUrl}
             />
           </View>
           <View style={styles.profileInfo}>
-            <Text size={24} color="#111827" style={styles.profileName}>Alex Rivera</Text>
+            <Text size={24} color="#111827" style={styles.profileName}>{userName}</Text>
             <Text size={12} color="#6b7280">Gold Member - 128 Following</Text>
           </View>
         </View>
@@ -287,7 +628,7 @@ export default () => {
             </View>
           : null}
       </ScrollView>
-    </View>
+      </View>
   )
 }
 
@@ -309,6 +650,29 @@ const styles = createStyle({
   header: {
     paddingHorizontal: 16,
     paddingBottom: 8,
+  },
+  searchResultHeader: {
+    paddingBottom: 8,
+  },
+  searchResultRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchResultSearchWrap: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  searchResultSourcePanelWrap: {
+    paddingHorizontal: 16,
+    alignItems: 'flex-end',
+  },
+  searchResultList: {
+    backgroundColor: '#ffffff',
+  },
+  searchResultContent: {
+    paddingBottom: 16,
   },
   headerFloating: {
     position: 'absolute',
@@ -349,6 +713,61 @@ const styles = createStyle({
     color: '#111827',
     fontSize: 13,
     paddingVertical: 0,
+  },
+  searchInputTrigger: {
+    flex: 1,
+    marginLeft: 8,
+    height: '100%',
+    justifyContent: 'center',
+  },
+  sourceMenuBtn: {
+    marginLeft: 8,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  sourceCapsule: {
+    height: 28,
+    minWidth: 62,
+    borderRadius: 14,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceText: {
+    fontWeight: '600',
+  },
+  sourceChevron: {
+    marginLeft: 2,
+    transform: [{ rotate: '90deg' }],
+  },
+  sourcePanel: {
+    marginTop: 8,
+    alignSelf: 'flex-end',
+    width: 110,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  sourcePanelItem: {
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourcePanelItemActive: {
+    backgroundColor: '#f5f3ff',
+  },
+  sourcePanelText: {
+    fontWeight: '600',
   },
   profileSection: {
     flexDirection: 'row',
@@ -517,6 +936,11 @@ const styles = createStyle({
     alignItems: 'center',
     marginBottom: 10,
   },
+  songMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   songPic: {
     width: 50,
     height: 50,
@@ -539,6 +963,30 @@ const styles = createStyle({
     backgroundColor: '#f3e8ff',
     marginRight: 6,
     fontWeight: '600',
+  },
+  searchSongActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  searchSongInterval: {
+    marginRight: 4,
+    minWidth: 38,
+    textAlign: 'right',
+  },
+  songActionBtn: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchLoveFilled: {
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  searchAddText: {
+    lineHeight: 19,
+    fontWeight: '700',
   },
   emptyCard: {
     borderRadius: 10,

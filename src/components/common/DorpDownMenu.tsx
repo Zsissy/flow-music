@@ -8,6 +8,7 @@ import Button, { type BtnType, type BtnProps } from './Button'
 export interface DorpDownMenuProps<T extends Menus> extends Omit<MenuProps<T>, 'width'> {
   children: React.ReactNode
   btnStyle?: BtnProps['style']
+  btnRipple?: BtnProps['ripple']
 }
 
 export default <T extends Menus>({
@@ -19,6 +20,7 @@ export default <T extends Menus>({
   children,
   activeId,
   btnStyle,
+  btnRipple,
 }: DorpDownMenuProps<T>) => {
   const buttonRef = useRef<BtnType>(null)
   const menuRef = useRef<MenuType>(null)
@@ -34,7 +36,7 @@ export default <T extends Menus>({
   }
 
   return (
-    <Button style={btnStyle} ref={buttonRef} onPress={showMenu}>
+    <Button style={btnStyle} ref={buttonRef} onPress={showMenu} ripple={btnRipple}>
       {children}
       <Menu
         ref={menuRef}

@@ -27,6 +27,8 @@ const syncHostHistoryPrefix = storageDataPrefix.syncHostHistory
 const listPrefix = storageDataPrefix.list
 const dislikeListPrefix = storageDataPrefix.dislikeList
 const userApiPrefix = storageDataPrefix.userApi
+const userAvatarPrefix = storageDataPrefix.userAvatar
+const userNamePrefix = storageDataPrefix.userName
 const openStoragePathPrefix = storageDataPrefix.openStoragePath
 const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
 
@@ -581,4 +583,38 @@ export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean)
   if (!targetApi) return
   targetApi.allowShowUpdateAlert = enable
   await saveData(userApiPrefix, userApis)
+}
+
+let userAvatar: string | null = ''
+export const getUserAvatar = async() => {
+  if (userAvatar !== '') return userAvatar
+  // eslint-disable-next-line require-atomic-updates
+  userAvatar = await getData<string>(userAvatarPrefix) ?? null
+  return userAvatar
+}
+export const saveUserAvatar = async(path: string | null) => {
+  if (path) {
+    userAvatar = path
+    await saveData(userAvatarPrefix, path)
+  } else {
+    userAvatar = null
+    await removeData(userAvatarPrefix)
+  }
+}
+
+let userName: string | null = ''
+export const getUserName = async() => {
+  if (userName !== '') return userName
+  // eslint-disable-next-line require-atomic-updates
+  userName = await getData<string>(userNamePrefix) ?? null
+  return userName
+}
+export const saveUserName = async(name: string | null) => {
+  if (name?.trim()) {
+    userName = name
+    await saveData(userNamePrefix, name)
+  } else {
+    userName = null
+    await removeData(userNamePrefix)
+  }
 }

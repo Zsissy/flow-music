@@ -1,12 +1,18 @@
-import { ScrollView, Switch, TextInput, TouchableOpacity, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Keyboard, Modal, ScrollView, Switch, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
+import Input from '@/components/common/Input'
 import { createStyle } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
-import Source from '@/screens/Home/Views/Setting/settings/Basic/Source'
-import Sync from '@/screens/Home/Views/Setting/settings/Sync'
+import Source, { type SourceType } from '@/screens/Home/Views/Setting/settings/Basic/Source'
+import Sync, { type SyncType } from '@/screens/Home/Views/Setting/settings/Sync'
+import { getUserName, saveUserAvatar, saveUserName } from '@/utils/data'
+import { useTheme } from '@/store/theme/hook'
 
 const SHOW_ADVANCED_SWITCHES = false
+const DEFAULT_USER_NAME = 'Alex Rivera'
 
 const settingItems = [
   { title: 'App Theme', subtitle: 'Light Mode', icon: 'setting', enabled: true },
@@ -16,9 +22,76 @@ const settingItems = [
 ]
 
 export default () => {
+  const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   const headerTopPadding = statusBarHeight + 8
   const headerHeight = headerTopPadding + 46 + 8
+  const sourceRef = useRef<SourceType>(null)
+  const syncRef = useRef<SyncType>(null)
+  const avatarFileRef = useRef<FileSelectType>(null)
+  const [nickname, setNickname] = useState(DEFAULT_USER_NAME)
+  const [nicknameDraft, setNicknameDraft] = useState(DEFAULT_USER_NAME)
+  const [isNameModalVisible, setNameModalVisible] = useState(false)
+
+  useEffect(() => {
+    let isUnmounted = false
+    void getUserName().then((name) => {
+      if (isUnmounted) return
+      const value = name ?? DEFAULT_USER_NAME
+      setNickname(value)
+      setNicknameDraft(value)
+    })
+
+    const handleNameUpdate = (name: string) => {
+      const value = name.trim() ? name : DEFAULT_USER_NAME
+      setNickname(value)
+      setNicknameDraft(value)
+    }
+    global.app_event.on('userNameUpdated', handleNameUpdate)
+
+    return () => {
+      isUnmounted = true
+      global.app_event.off('userNameUpdated', handleNameUpdate)
+    }
+  }, [])
+
+  const handleAddSource = () => {
+    sourceRef.current?.showAddPicker()
+  }
+  const handleAddSyncHost = () => {
+    syncRef.current?.showHostInput()
+  }
+  const handlePickAvatar = () => {
+    avatarFileRef.current?.show({
+      title: '\u9009\u62e9\u5934\u50cf\u56fe\u7247',
+      dirOnly: false,
+      filter: ['jpg', 'jpeg', 'png', 'webp', 'bmp'],
+    }, (path) => {
+      void saveUserAvatar(path).then(() => {
+        global.app_event.userAvatarUpdated(path)
+      })
+    })
+  }
+  const handleShowNameModal = () => {
+    setNicknameDraft(nickname)
+    setNameModalVisible(true)
+  }
+  const handleCloseNameModal = () => {
+    setNicknameDraft(nickname)
+    setNameModalVisible(false)
+  }
+  const handleSaveName = () => {
+    const draft = nicknameDraft.trim()
+    const current = nickname.trim()
+    let newName = DEFAULT_USER_NAME
+    if (current) newName = current
+    if (draft) newName = draft
+    void saveUserName(newName).then(() => {
+      setNickname(newName)
+      global.app_event.userNameUpdated(newName)
+      setNameModalVisible(false)
+    })
+  }
 
   return (
     <View style={styles.container}>
@@ -48,7 +121,7 @@ export default () => {
         <View style={styles.list}>
           <View style={styles.sectionCard}>
             <Text size={15} color="#111827" style={styles.cardTitle}>{'\u4e2a\u4eba\u8bbe\u7f6e'}</Text>
-            <TouchableOpacity style={styles.profileRow} activeOpacity={0.75}>
+            <TouchableOpacity style={styles.profileRow} activeOpacity={0.75} onPress={handlePickAvatar}>
               <View style={styles.profileLeft}>
                 <View style={styles.profileIconWrap}>
                   <Icon name="album" rawSize={16} color="#5b6474" />
@@ -57,7 +130,7 @@ export default () => {
               </View>
               <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileRow} activeOpacity={0.75}>
+            <TouchableOpacity style={styles.profileRow} activeOpacity={0.75} onPress={handleShowNameModal}>
               <View style={styles.profileLeft}>
                 <View style={styles.profileIconWrap}>
                   <Icon name="menu" rawSize={16} color="#5b6474" />
@@ -69,13 +142,23 @@ export default () => {
           </View>
 
           <View style={styles.sectionCard}>
-            <Text size={15} color="#111827" style={styles.cardTitle}>{'\u97f3\u4e50\u64ad\u653e'}</Text>
-            <Source embedded />
+            <View style={styles.cardTitleRow}>
+              <Text size={15} color="#111827" style={styles.cardTitleNoMargin}>{'\u97f3\u4e50\u64ad\u653e'}</Text>
+              <TouchableOpacity style={styles.addBtn} activeOpacity={0.75} onPress={handleAddSource}>
+                <Text size={18} color="#111827" style={styles.addBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Source ref={sourceRef} embedded />
           </View>
 
           <View style={styles.sectionCard}>
-            <Text size={15} color="#111827" style={styles.cardTitle}>{'\u6570\u636e\u540c\u6b65'}</Text>
-            <Sync embedded />
+            <View style={styles.cardTitleRow}>
+              <Text size={15} color="#111827" style={styles.cardTitleNoMargin}>{'\u6570\u636e\u540c\u6b65'}</Text>
+              <TouchableOpacity style={styles.addBtn} activeOpacity={0.75} onPress={handleAddSyncHost}>
+                <Text size={18} color="#111827" style={styles.addBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Sync ref={syncRef} embedded />
           </View>
         </View>
 
@@ -100,6 +183,38 @@ export default () => {
           ) : null
         }
       </ScrollView>
+      <FileSelect ref={avatarFileRef} />
+      <Modal
+        visible={isNameModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={handleCloseNameModal}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalCard}>
+                <Text size={17} color="#111827" style={styles.modalTitle}>{'\u6635\u79f0\u7f16\u8f91'}</Text>
+                <Input
+                  placeholder={('\u8bf7\u8f93\u5165\u6635\u79f0')}
+                  value={nicknameDraft}
+                  onChangeText={setNicknameDraft}
+                  style={[styles.modalInput, { backgroundColor: theme['c-primary-background'] }]}
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={handleCloseNameModal} activeOpacity={0.75}>
+                    <Text size={14} color="#4b5563">{'\u53d6\u6d88'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleSaveName} activeOpacity={0.85}>
+                    <Text size={14} color="#111827" style={styles.modalBtnPrimaryText}>{'\u4fdd\u5b58'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   )
 }
@@ -175,6 +290,29 @@ const styles = createStyle({
     fontWeight: '700',
     marginBottom: 10,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  cardTitleNoMargin: {
+    fontWeight: '700',
+  },
+  addBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addBtnText: {
+    lineHeight: 22,
+    fontWeight: '600',
+  },
   profileRow: {
     minHeight: 44,
     flexDirection: 'row',
@@ -233,5 +371,53 @@ const styles = createStyle({
   itemTitle: {
     fontWeight: '600',
     marginBottom: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#eef0f3',
+    paddingTop: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+  },
+  modalTitle: {
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalInput: {
+    borderRadius: 12,
+    height: 44,
+  },
+  modalActions: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalBtn: {
+    flexGrow: 1,
+    flexShrink: 1,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnGhost: {
+    backgroundColor: '#f3f4f6',
+  },
+  modalBtnPrimary: {
+    backgroundColor: '#e5e7eb',
+  },
+  modalBtnPrimaryText: {
+    fontWeight: '600',
   },
 })
