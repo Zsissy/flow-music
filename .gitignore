@@ -27,6 +27,7 @@ ios/.xcode.env.local
 build/
 .idea
 .gradle
+.gradle-project-cache/
 local.properties
 keystore.properties
 *.iml

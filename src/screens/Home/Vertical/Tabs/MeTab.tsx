@@ -60,7 +60,6 @@ export default () => {
   const [searchResults, setSearchResults] = useState<SearchResultItem[]>([])
   const [lovedSongMap, setLovedSongMap] = useState<Record<string, true>>({})
   const [isSearchInputEditing, setSearchInputEditing] = useState(false)
-  const [searchInputVersion, setSearchInputVersion] = useState(0)
   const detailRequestIdRef = useRef(0)
   const searchRequestIdRef = useRef(0)
   const searchInputRef = useRef<TextInput>(null)
@@ -343,7 +342,6 @@ export default () => {
       setSearchKeyword('')
       setSearchResults([])
       setSourceMenuVisible(false)
-      setSearchInputVersion((v) => v + 1)
       forceDismissSearchInput()
       return
     }
@@ -353,7 +351,6 @@ export default () => {
     setSearchResults([])
     setSourceMenuVisible(false)
     void runSearch(input, searchSource)
-    setSearchInputVersion((v) => v + 1)
     forceDismissSearchInput()
   }, [forceDismissSearchInput, runSearch, searchSource, searchText])
 
@@ -370,7 +367,6 @@ export default () => {
     setSearchKeyword('')
     setSearchResults([])
     setSourceMenuVisible(false)
-    setSearchInputVersion((v) => v + 1)
     forceDismissSearchInput()
   }, [forceDismissSearchInput])
 
@@ -386,7 +382,7 @@ export default () => {
     return () => { clearTimeout(timer) }
   }, [isSearchInputEditing, isSearchMode])
   const handleBeginSearchInputEdit = useCallback(() => {
-    setSearchInputEditing(true)
+    searchInputRef.current?.focus()
     setSourceMenuVisible(false)
   }, [])
 
@@ -433,26 +429,20 @@ export default () => {
           <View style={styles.searchResultSearchWrap}>
             <View style={styles.searchWrap}>
               <Icon name="search-2" rawSize={18} color="#9ca3af" />
-              {isSearchInputEditing
-                ? <TextInput
-                    key={`search-input-${searchInputVersion}`}
-                    ref={searchInputRef}
-                    style={styles.searchInput}
-                    value={searchText}
-                    onChangeText={setSearchText}
-                    disableFullscreenUI
-                    blurOnSubmit
-                    onBlur={() => { setSearchInputEditing(false) }}
-                    onSubmitEditing={({ nativeEvent }) => { handleSubmitSearch(nativeEvent.text ?? searchText) }}
-                    returnKeyType="search"
-                    placeholder="Search songs, artists, playlists..."
-                    placeholderTextColor="#9ca3af"
-                  />
-                : <TouchableOpacity style={styles.searchInputDisplay} activeOpacity={0.85} onPress={handleBeginSearchInputEdit}>
-                    <Text size={13} color={searchText ? '#111827' : '#9ca3af'} numberOfLines={1}>
-                      {searchText || 'Search songs, artists, playlists...'}
-                    </Text>
-                  </TouchableOpacity>}
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchInput}
+                value={searchText}
+                onChangeText={setSearchText}
+                disableFullscreenUI
+                blurOnSubmit
+                onFocus={() => { setSearchInputEditing(true) }}
+                onBlur={() => { setSearchInputEditing(false) }}
+                onSubmitEditing={({ nativeEvent }) => { handleSubmitSearch(nativeEvent.text ?? searchText) }}
+                returnKeyType="search"
+                placeholder="Search songs, artists, playlists..."
+                placeholderTextColor="#9ca3af"
+              />
               <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
                 <View style={styles.sourceCapsule}>
                   <Text size={12} color="#111827" style={styles.sourceText}>{searchSourceLabel}</Text>
@@ -480,7 +470,7 @@ export default () => {
           : null}
       </View>
     )
-  }, [handleBeginSearchInputEdit, handleExitSearch, handleSelectSource, handleSubmitSearch, isSearchInputEditing, isSourceMenuVisible, searchInputVersion, searchSource, searchSourceLabel, searchText, statusBarHeight, toggleSourceMenu])
+  }, [handleExitSearch, handleSelectSource, handleSubmitSearch, isSourceMenuVisible, searchSource, searchSourceLabel, searchText, statusBarHeight, toggleSourceMenu])
 
   if (isSearchMode) {
     return (
@@ -709,12 +699,11 @@ const styles = createStyle({
   },
   searchResultList: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8f9fa',
   },
   searchModeRoot: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    opacity: 1,
+    backgroundColor: '#f8f9fa',
   },
   searchResultContent: {
     paddingBottom: 16,
