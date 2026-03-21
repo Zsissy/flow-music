@@ -8,7 +8,7 @@ import { setNavActiveId } from '@/core/common'
 import { useI18n } from '@/lang'
 import type { InitState } from '@/store/common/state'
 
-const activeColor = '#7f0df2'
+const activeColor = '#111827'
 const inactiveColor = '#9ca3af'
 
 const tabs = [

@@ -3,6 +3,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import { playMusic as handlePlayMusic } from './playList'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
+import { notificationIcon } from '@/config'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -280,7 +281,7 @@ export const updateOptions = async(options = {
   // stopIcon: require('./stop-icon.png'),
   // previousIcon: require('./previous-icon.png'),
   // nextIcon: require('./next-icon.png'),
-  // icon: notificationIcon, // The notification icon
+  icon: notificationIcon, // The notification small icon on Android
 }) => {
   return TrackPlayer.updateOptions(options)
 }

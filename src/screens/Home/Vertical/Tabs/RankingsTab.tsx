@@ -73,7 +73,7 @@ export default () => {
       >
         <View style={styles.titleRow}>
           <Text size={30} color="#111827" style={styles.pageTitle}>Rankings</Text>
-          <Text size={13} color="#7f0df2" style={styles.pageTag}>Global</Text>
+          <Text size={13} color="#111827" style={styles.pageTag}>Global</Text>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
@@ -93,7 +93,7 @@ export default () => {
         <View style={styles.list}>
           {rankingList.map(item => (
             <View key={item.rank} style={styles.item}>
-              <Text size={18} color={item.rank === 1 ? '#7f0df2' : '#9ca3af'} style={styles.rank}>
+              <Text size={18} color={item.rank === 1 ? '#111827' : '#9ca3af'} style={styles.rank}>
                 {item.rank}
               </Text>
               <Image style={styles.itemPic} url={item.pic} />
@@ -175,7 +175,7 @@ const styles = createStyle({
     paddingBottom: 10,
   },
   categoryActive: {
-    backgroundColor: '#7f0df2',
+    backgroundColor: '#111827',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,

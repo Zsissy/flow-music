@@ -1,6 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 
-import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
+import PromptDialog, { type PromptDialogType } from '@/components/common/PromptDialog'
 
 import { toast } from '@/utils/tools'
 
@@ -16,7 +16,7 @@ export default forwardRef<DesktopLyricEnableType, {}>((props, ref) => {
   const t = useI18n()
   const [visible, setVisible] = useState(false)
   // const setIsShowDesktopLyric = useDispatch('common', 'setIsShowDesktopLyric')
-  const confirmAlertRef = useRef<ConfirmAlertType>(null)
+  const promptDialogRef = useRef<PromptDialogType>(null)
 
   useImperativeHandle(ref, () => ({
     setEnabled(enabled) {
@@ -25,11 +25,11 @@ export default forwardRef<DesktopLyricEnableType, {}>((props, ref) => {
   }))
 
   const handleShowModal = () => {
-    if (visible) confirmAlertRef.current?.setVisible(true)
+    if (visible) promptDialogRef.current?.show('')
     else {
       setVisible(true)
       requestAnimationFrame(() => {
-        confirmAlertRef.current?.setVisible(true)
+        promptDialogRef.current?.show('')
       })
     }
   }
@@ -53,22 +53,23 @@ export default forwardRef<DesktopLyricEnableType, {}>((props, ref) => {
     toast(t('disagree_tip'), 'long')
   }
   const handleTipsConfirm = () => {
-    confirmAlertRef.current?.setVisible(false)
     void openDesktopLyricOverlayPermissionActivity()
+    return true
   }
 
   return (
     visible
       ? (
-          <ConfirmAlert
-            ref={confirmAlertRef}
-            onCancel={handleTipsCancel}
-            onConfirm={handleTipsConfirm}
+          <PromptDialog
+            ref={promptDialogRef}
+            title={t('setting_lyric_desktop_permission_tip')}
+            showInput={false}
             bgHide={false}
-            closeBtn={false}
             cancelText={t('disagree')}
             confirmText={t('agree_go')}
-            text={t('setting_lyric_desktop_permission_tip')} />
+            onCancel={handleTipsCancel}
+            onConfirm={handleTipsConfirm}
+          />
         )
       : null
   )

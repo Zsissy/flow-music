@@ -29,6 +29,7 @@ const dislikeListPrefix = storageDataPrefix.dislikeList
 const userApiPrefix = storageDataPrefix.userApi
 const userAvatarPrefix = storageDataPrefix.userAvatar
 const userNamePrefix = storageDataPrefix.userName
+const userSignaturePrefix = storageDataPrefix.userSignature
 const openStoragePathPrefix = storageDataPrefix.openStoragePath
 const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
 
@@ -616,5 +617,22 @@ export const saveUserName = async(name: string | null) => {
   } else {
     userName = null
     await removeData(userNamePrefix)
+  }
+}
+
+let userSignature: string | null = ''
+export const getUserSignature = async() => {
+  if (userSignature !== '') return userSignature
+  // eslint-disable-next-line require-atomic-updates
+  userSignature = await getData<string>(userSignaturePrefix) ?? null
+  return userSignature
+}
+export const saveUserSignature = async(signature: string | null) => {
+  if (signature?.trim()) {
+    userSignature = signature
+    await saveData(userSignaturePrefix, signature)
+  } else {
+    userSignature = null
+    await removeData(userSignaturePrefix)
   }
 }

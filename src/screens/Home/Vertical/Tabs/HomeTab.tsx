@@ -73,7 +73,7 @@ export default () => {
           <View style={styles.sectionHeader}>
             <Text size={24} color="#111827" style={styles.sectionTitle}>Recommended</Text>
             <TouchableOpacity activeOpacity={0.8}>
-              <Text size={13} color="#7f0df2" style={styles.sectionLink}>See All</Text>
+              <Text size={13} color="#111827" style={styles.sectionLink}>See All</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.grid}>
@@ -209,7 +209,7 @@ const styles = createStyle({
     height: 96,
     borderRadius: 48,
     borderWidth: 2,
-    borderColor: '#f1e8ff',
+    borderColor: '#e5e7eb',
     backgroundColor: '#ffffff',
     padding: 3,
     shadowColor: '#000000',

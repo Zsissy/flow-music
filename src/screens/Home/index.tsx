@@ -7,6 +7,7 @@ import Vertical from './Vertical'
 import Horizontal from './Horizontal'
 import { navigations } from '@/navigation'
 import settingState from '@/store/setting/state'
+import PermissionPromptHost from '@/components/PermissionPromptHost'
 
 
 interface Props {
@@ -33,6 +34,7 @@ export default ({ componentId }: Props) => {
           ? <Horizontal />
           : <Vertical />
       }
+      <PermissionPromptHost />
     </PageContent>
   )
 }

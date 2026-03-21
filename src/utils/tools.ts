@@ -11,6 +11,7 @@ import { scaleSizeH, scaleSizeW, setSpText } from './pixelRatio'
 import { toOldMusicInfo } from './index'
 import { stringMd5 } from 'react-native-quick-md5'
 import { windowSizeTools } from '@/utils/windowSizeTools'
+import { type PermissionPromptAction, type PermissionPromptPayload } from '@/types/permissionPrompt'
 
 
 // https://stackoverflow.com/a/47349998
@@ -246,40 +247,26 @@ export const checkNotificationPermission = async() => {
   if (isHide != null) return
   const enabled = await isNotificationsEnabled()
   if (enabled) return
-  return new Promise<void>((resolve) => {
-    Alert.alert(
-      global.i18n.t('notifications_check_title'),
-      global.i18n.t('notifications_check_tip'),
-      [
-        {
-          text: global.i18n.t('never_show'),
-          onPress: () => {
-            void saveData(storageDataPrefix.notificationTipEnable, '1')
-            toast(global.i18n.t('disagree_tip'))
-            resolve()
-          },
-        },
-        {
-          text: global.i18n.t('disagree'),
-          onPress: () => {
-            toast(global.i18n.t('disagree_tip'))
-            resolve()
-          },
-        },
-        {
-          text: global.i18n.t('agree_go'),
-          onPress: () => {
-            requestAnimationFrame(() => {
-              void requestNotificationPermission().then((result) => {
-                if (!result) toast(global.i18n.t('disagree_tip'))
-                resolve()
-              })
-            })
-          },
-        },
-      ],
-    )
+  const action = await showPermissionPrompt({
+    title: global.i18n.t('notifications_check_title'),
+    message: global.i18n.t('notifications_check_tip'),
+    cancelText: global.i18n.t('disagree'),
+    confirmText: global.i18n.t('agree_go'),
+    extraText: global.i18n.t('never_show'),
   })
+  if (action == 'extra') {
+    await saveData(storageDataPrefix.notificationTipEnable, '1')
+    toast(global.i18n.t('disagree_tip'))
+    return
+  }
+  if (action == 'cancel') {
+    toast(global.i18n.t('disagree_tip'))
+    return
+  }
+  if (action == 'confirm') {
+    const result = await requestNotificationPermission()
+    if (!result) toast(global.i18n.t('disagree_tip'))
+  }
 }
 
 
@@ -288,46 +275,95 @@ export const checkIgnoringBatteryOptimization = async() => {
   if (isHide != null) return
   const enabled = await isIgnoringBatteryOptimization()
   if (enabled) return
-  return new Promise<void>((resolve) => {
-    Alert.alert(
-      global.i18n.t('ignoring_battery_optimization_check_title'),
-      global.i18n.t('ignoring_battery_optimization_check_tip'),
-      [
-        {
-          text: global.i18n.t('never_show'),
-          onPress: () => {
-            void saveData(storageDataPrefix.ignoringBatteryOptimizationTipEnable, '1')
-            toast(global.i18n.t('disagree_tip'))
-            resolve()
-          },
-        },
-        {
-          text: global.i18n.t('disagree'),
-          onPress: () => {
-            toast(global.i18n.t('disagree_tip'))
-            resolve()
-          },
-        },
-        {
-          text: global.i18n.t('agree_to'),
-          onPress: () => {
-            requestAnimationFrame(() => {
-              void requestIgnoreBatteryOptimization().then((result) => {
-                if (!result) toast(global.i18n.t('disagree_tip'))
-                resolve()
-              })
-            })
-          },
-        },
-      ],
-    )
+  const action = await showPermissionPrompt({
+    title: global.i18n.t('ignoring_battery_optimization_check_title'),
+    message: global.i18n.t('ignoring_battery_optimization_check_tip'),
+    cancelText: global.i18n.t('disagree'),
+    confirmText: global.i18n.t('agree_to'),
+    extraText: global.i18n.t('never_show'),
   })
+  if (action == 'extra') {
+    await saveData(storageDataPrefix.ignoringBatteryOptimizationTipEnable, '1')
+    toast(global.i18n.t('disagree_tip'))
+    return
+  }
+  if (action == 'cancel') {
+    toast(global.i18n.t('disagree_tip'))
+    return
+  }
+  if (action == 'confirm') {
+    const result = await requestIgnoreBatteryOptimization()
+    if (!result) toast(global.i18n.t('disagree_tip'))
+  }
 }
 export const resetNotificationPermissionCheck = async() => {
   return removeData(storageDataPrefix.notificationTipEnable)
 }
 export const resetIgnoringBatteryOptimizationCheck = async() => {
   return removeData(storageDataPrefix.ignoringBatteryOptimizationTipEnable)
+}
+
+const createPermissionPromptId = () => `permission_prompt_${Date.now()}_${Math.random().toString(16).slice(2)}`
+const showPermissionPrompt = async({
+  title,
+  message,
+  cancelText,
+  confirmText,
+  extraText,
+  bgHide = false,
+}: Omit<PermissionPromptPayload, 'requestId'>): Promise<PermissionPromptAction> => {
+  if (Reflect.get(global.lx, 'permissionPromptReady') !== true) {
+    return new Promise<PermissionPromptAction>((resolve) => {
+      const buttons: Array<{ text: string, onPress: () => void }> = [
+        {
+          text: cancelText,
+          onPress: () => {
+            resolve('cancel')
+          },
+        },
+      ]
+      if (extraText) {
+        buttons.push({
+          text: extraText,
+          onPress: () => {
+            resolve('extra')
+          },
+        })
+      }
+      buttons.push({
+        text: confirmText,
+        onPress: () => {
+          resolve('confirm')
+        },
+      })
+      Alert.alert(title, message, buttons, {
+        cancelable: bgHide,
+        onDismiss() {
+          resolve('cancel')
+        },
+      })
+    })
+  }
+
+  const requestId = createPermissionPromptId()
+
+  return new Promise<PermissionPromptAction>((resolve) => {
+    const handleResult = (targetRequestId: string, action: PermissionPromptAction) => {
+      if (targetRequestId != requestId) return
+      global.app_event.off('permissionPromptResult', handleResult)
+      resolve(action)
+    }
+    global.app_event.on('permissionPromptResult', handleResult)
+    global.app_event.showPermissionPrompt({
+      requestId,
+      title,
+      message,
+      cancelText,
+      confirmText,
+      extraText,
+      bgHide,
+    })
+  })
 }
 
 export const shareMusic = (shareType: LX.ShareType, downloadFileName: LX.AppSetting['download.fileName'], musicInfo: LX.Music.MusicInfo) => {

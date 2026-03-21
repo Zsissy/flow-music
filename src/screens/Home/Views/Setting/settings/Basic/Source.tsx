@@ -258,12 +258,8 @@ const styles = createStyle({
     flexShrink: 1,
   },
   listEmbedded: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#edf0f3',
-    backgroundColor: '#fafbfc',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   embeddedItem: {
     paddingVertical: 5,
@@ -283,14 +279,14 @@ const styles = createStyle({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#f9fafb',
     borderWidth: 1,
-    borderColor: '#fee2e2',
+    borderColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
   },
   removeBtnIcon: {
-    lineHeight: 20,
+    lineHeight: 22,
     fontWeight: '600',
   },
   removeBtnPlaceholder: {

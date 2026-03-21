@@ -4,7 +4,7 @@ import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 // import { useGetter, useDispatch } from '@/store'
 import List, { type ListType } from './List'
 
-import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
+import PromptDialog, { type PromptDialogType } from '@/components/common/PromptDialog'
 import { toast, TEMP_FILE_PATH, checkStoragePermissions, requestStoragePermission, confirmDialog } from '@/utils/tools'
 import { useI18n } from '@/lang'
 import { selectFile, unlink } from '@/utils/fs'
@@ -34,7 +34,7 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(({
 }: ChoosePathProps, ref) => {
   const t = useI18n()
   const listRef = useRef<ListType>(null)
-  const confirmAlertRef = useRef<ConfirmAlertType>(null)
+  const promptDialogRef = useRef<PromptDialogType>(null)
   const [deny, setDeny] = useState(false)
   const readOptions = useRef<ReadOptions>(initReadOptions as ReadOptions)
   const isUnmounted = useUnmounted()
@@ -43,9 +43,10 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(({
     return checkStoragePermissions().then(isGranted => {
       readOptions.current = options
       if (isGranted) {
+        setDeny(false)
         listRef.current?.show(options.title, '', options.dirOnly, options.filter)
       } else {
-        confirmAlertRef.current?.setVisible(true)
+        promptDialogRef.current?.show('')
       }
     })
   }
@@ -94,19 +95,20 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(({
   }))
 
   const handleTipsCancel = () => {
-    toast(t('disagree_tip'), 'long')
+    if (!deny) toast(t('disagree_tip'), 'long')
   }
-  const handleTipsConfirm = () => {
-    confirmAlertRef.current?.setVisible(false)
-    void requestStoragePermission().then(result => {
-      // console.log(result)
-      setDeny(result == null)
-      if (result) {
-        listRef.current?.show(readOptions.current.title, '', readOptions.current.dirOnly, readOptions.current.filter)
-      } else {
-        toast(t('storage_permission_tip_disagree'), 'long')
-      }
-    })
+  const handleTipsConfirm = async() => {
+    if (deny) return true
+    const result = await requestStoragePermission()
+    // console.log(result)
+    setDeny(result == null)
+    if (result) {
+      setDeny(false)
+      listRef.current?.show(readOptions.current.title, '', readOptions.current.dirOnly, readOptions.current.filter)
+    } else {
+      toast(t('storage_permission_tip_disagree'), 'long')
+    }
+    return true
   }
   const onPathConfirm = (path: string) => {
     listRef.current?.hide()
@@ -114,18 +116,19 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(({
   }
 
   return (
-    <>
+      <>
       <List ref={listRef} onConfirm={onPathConfirm} />
-      <ConfirmAlert
-        ref={confirmAlertRef}
+      <PromptDialog
+        ref={promptDialogRef}
+        title={t(deny ? 'storage_permission_tip_disagree_ask_again' : 'storage_permission_tip_request')}
+        showInput={false}
+        showConfirm={!deny}
+        bgHide={false}
+        cancelText={deny ? t('ok') : t('disagree')}
+        confirmText={t('agree')}
         onCancel={handleTipsCancel}
         onConfirm={handleTipsConfirm}
-        bgHide={false}
-        closeBtn={false}
-        showConfirm={!deny}
-        cancelText={t('disagree')}
-        confirmText={t('agree')}
-        text={t(deny ? 'storage_permission_tip_disagree_ask_again' : 'storage_permission_tip_request')} />
+      />
     </>
   )
 })

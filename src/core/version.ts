@@ -69,18 +69,30 @@ export const checkUpdate = async() => {
 }
 
 export const downloadUpdate = () => {
+  const maxRetry = 3
+  const retryDelayMs = 1500
+
   versionActions.setVersionInfo({ status: 'downloading' })
   versionActions.setProgress({ total: 0, current: 0 })
 
-  downloadNewVersion(versionState.versionInfo.newVersion!.version, (total: number, current: number) => {
-    // console.log(total, current)
-    versionActions.setProgress({ total, current })
-  }).then(() => {
-    versionActions.setVersionInfo({ status: 'downloaded' })
-  }).catch(() => {
-    versionActions.setVersionInfo({ status: 'error' })
-    // console.log(err)
-  })
+  let retryCount = 0
+  const runDownload = () => {
+    void downloadNewVersion(versionState.versionInfo.newVersion!.version, (total: number, current: number) => {
+      versionActions.setProgress({ total, current })
+    }).then(() => {
+      versionActions.setVersionInfo({ status: 'downloaded' })
+    }).catch(() => {
+      retryCount += 1
+      if (retryCount < maxRetry) {
+        setTimeout(runDownload, retryDelayMs)
+        return
+      }
+      versionActions.setVersionInfo({ status: 'error' })
+      toast(global.i18n.t('version_tip_failed'))
+    })
+  }
+
+  runDownload()
 }
 
 

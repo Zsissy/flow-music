@@ -1,11 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TouchableOpacity, View } from 'react-native'
 import { useKeyboard } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 import Image from '@/components/common/Image'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
-import { useIsPlay, usePlayerMusicInfo } from '@/store/player/hook'
+import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo, useProgress } from '@/store/player/hook'
 import { collectMusic, togglePlay, uncollectMusic } from '@/core/player/player'
 import { useSettingValue } from '@/store/setting/hook'
 import commonState from '@/store/common/state'
@@ -14,14 +14,77 @@ import { getListMusics } from '@/core/list'
 import { LIST_IDS } from '@/config/constant'
 import { useI18n } from '@/lang'
 
+const RING_SIZE = 54
+const COVER_SIZE = 44
+const COVER_OFFSET = (RING_SIZE - COVER_SIZE) / 2
+const RING_DOT_COUNT = 72
+const RING_DOT_SIZE = 2.4
+const RING_GAP = 2.2
+
+const sourceRingColorMap: Record<string, string> = {
+  tx: '#31c27c',
+  wy: '#d81e06',
+  kg: '#2f88ff',
+  kw: '#f59e0b',
+  mg: '#e11d8d',
+  local: '#64748b',
+}
+
+const getSourceColor = (source: string | null | undefined) => {
+  if (!source) return '#111827'
+  return sourceRingColorMap[source.toLowerCase()] ?? '#111827'
+}
+
+const getTrackColor = (hex: string) => {
+  if (/^#[0-9a-f]{6}$/i.test(hex)) return `${hex}33`
+  return '#e5e7eb'
+}
+
+const getMusicSource = (musicInfo: LX.Player.PlayMusicInfo['musicInfo'] | null | undefined) => {
+  if (!musicInfo) return null
+  if ('progress' in musicInfo) return musicInfo.metadata.musicInfo.source
+  return musicInfo.source
+}
+
 export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const t = useI18n()
   const { keyboardShown } = useKeyboard()
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const musicInfo = usePlayerMusicInfo()
+  const playMusicInfo = usePlayMusicInfo()
+  const { progress } = useProgress()
   const isPlay = useIsPlay()
   const loveCheckId = useRef(0)
   const [isLoved, setIsLoved] = useState(false)
+  const ringColor = useMemo(() => {
+    if (!musicInfo.id) return '#111827'
+    return getSourceColor(getMusicSource(playMusicInfo.musicInfo))
+  }, [musicInfo.id, playMusicInfo.musicInfo])
+  const trackColor = useMemo(() => getTrackColor(ringColor), [ringColor])
+  const normalizedProgress = useMemo(() => {
+    if (!musicInfo.id || !Number.isFinite(progress)) return 0
+    if (progress <= 0) return 0
+    if (progress >= 1) return 1
+    return progress
+  }, [musicInfo.id, progress])
+  const activeDots = useMemo(() => Math.round(normalizedProgress * RING_DOT_COUNT), [normalizedProgress])
+  const ringDots = useMemo(() => {
+    const center = COVER_OFFSET + (COVER_SIZE / 2)
+    const radius = (COVER_SIZE / 2) + RING_GAP + (RING_DOT_SIZE / 2)
+    return Array.from({ length: RING_DOT_COUNT }, (_, index) => {
+      const angle = (-Math.PI / 2) + (index / RING_DOT_COUNT) * Math.PI * 2
+      const x = Math.round((center + Math.cos(angle) * radius - (RING_DOT_SIZE / 2)) * 10) / 10
+      const y = Math.round((center + Math.sin(angle) * radius - (RING_DOT_SIZE / 2)) * 10) / 10
+      const isActive = index < activeDots
+      return {
+        key: `ring_dot_${index}`,
+        x,
+        y,
+        backgroundColor: isActive ? ringColor : trackColor,
+        opacity: isActive ? 1 : 0.65,
+      }
+    })
+  }, [activeDots, ringColor, trackColor])
 
   const showPlayDetail = () => {
     if (!musicInfo.id) return
@@ -78,7 +141,25 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
         >
           <View style={styles.left}>
             <View style={styles.ring}>
-              <Image url={musicInfo.pic} style={styles.pic} />
+              <View style={styles.ringDotsLayer}>
+                {ringDots.map(dot => (
+                  <View
+                    key={dot.key}
+                    style={[
+                      styles.ringDot,
+                      {
+                        left: dot.x,
+                        top: dot.y,
+                        backgroundColor: dot.backgroundColor,
+                        opacity: dot.opacity,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              <View style={styles.picWrap}>
+                <Image url={musicInfo.pic} style={styles.pic} />
+              </View>
             </View>
           </View>
           <View style={styles.center}>
@@ -137,17 +218,42 @@ const styles = createStyle({
     marginRight: 10,
   },
   ring: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
-    borderColor: '#7f0df2',
-    padding: 3,
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringDotsLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    pointerEvents: 'none',
+  },
+  ringDot: {
+    position: 'absolute',
+    width: RING_DOT_SIZE,
+    height: RING_DOT_SIZE,
+    borderRadius: RING_DOT_SIZE / 2,
+  },
+  picWrap: {
+    position: 'absolute',
+    top: COVER_OFFSET,
+    left: COVER_OFFSET,
+    width: COVER_SIZE,
+    height: COVER_SIZE,
+    borderRadius: COVER_SIZE / 2,
+    overflow: 'hidden',
   },
   pic: {
     width: '100%',
     height: '100%',
-    borderRadius: 22,
+    borderRadius: COVER_SIZE / 2,
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
   center: {
     flex: 1,
@@ -176,10 +282,10 @@ const styles = createStyle({
     height: 40,
     borderRadius: 20,
     marginHorizontal: 2,
-    backgroundColor: '#7f0df2',
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7f0df2',
+    shadowColor: '#111827',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

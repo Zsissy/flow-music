@@ -8,7 +8,7 @@ import { createStyle } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
 import Source, { type SourceType } from '@/screens/Home/Views/Setting/settings/Basic/Source'
 import Sync, { type SyncType } from '@/screens/Home/Views/Setting/settings/Sync'
-import { getUserName, saveUserAvatar, saveUserName } from '@/utils/data'
+import { getUserName, getUserSignature, saveUserAvatar, saveUserName, saveUserSignature } from '@/utils/data'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
@@ -40,8 +40,12 @@ export default () => {
   const avatarFileRef = useRef<FileSelectType>(null)
   const [nickname, setNickname] = useState(DEFAULT_USER_NAME)
   const [nicknameDraft, setNicknameDraft] = useState(DEFAULT_USER_NAME)
+  const [signature, setSignature] = useState('')
+  const [signatureDraft, setSignatureDraft] = useState('')
   const [isNameModalVisible, setNameModalVisible] = useState(false)
+  const [isSignatureModalVisible, setSignatureModalVisible] = useState(false)
   const [isLanguagePanelVisible, setLanguagePanelVisible] = useState(false)
+  const defaultSignature = t('me_profile_status')
   const activeLangId = useSettingValue('common.langId')
   const activeLanguageLabel = useMemo(() => {
     const activeLocale = activeLangId ?? 'en_us'
@@ -69,6 +73,27 @@ export default () => {
       global.app_event.off('userNameUpdated', handleNameUpdate)
     }
   }, [])
+  useEffect(() => {
+    let isUnmounted = false
+    void getUserSignature().then((value) => {
+      if (isUnmounted) return
+      const signatureValue = value?.trim() ?? ''
+      setSignature(signatureValue)
+      setSignatureDraft(signatureValue || defaultSignature)
+    })
+
+    const handleSignatureUpdate = (value: string) => {
+      const signatureValue = value.trim()
+      setSignature(signatureValue)
+      setSignatureDraft(signatureValue || defaultSignature)
+    }
+    global.app_event.on('userSignatureUpdated', handleSignatureUpdate)
+
+    return () => {
+      isUnmounted = true
+      global.app_event.off('userSignatureUpdated', handleSignatureUpdate)
+    }
+  }, [defaultSignature])
 
   const handleAddSource = () => {
     sourceRef.current?.showAddPicker()
@@ -105,6 +130,24 @@ export default () => {
       setNickname(newName)
       global.app_event.userNameUpdated(newName)
       setNameModalVisible(false)
+    })
+  }
+  const handleShowSignatureModal = () => {
+    setSignatureDraft(signature || defaultSignature)
+    setSignatureModalVisible(true)
+  }
+  const handleCloseSignatureModal = () => {
+    setSignatureDraft(signature || defaultSignature)
+    setSignatureModalVisible(false)
+  }
+  const handleSaveSignature = () => {
+    const newSignature = signatureDraft.trim().substring(0, 140)
+    const saveValue = newSignature && newSignature != defaultSignature ? newSignature : ''
+    void saveUserSignature(saveValue || null).then(() => {
+      setSignature(saveValue)
+      setSignatureDraft(saveValue || defaultSignature)
+      global.app_event.userSignatureUpdated(saveValue)
+      setSignatureModalVisible(false)
     })
   }
   const handleToggleLanguagePanel = () => {
@@ -161,6 +204,15 @@ export default () => {
               </View>
               <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
             </TouchableOpacity>
+            <TouchableOpacity style={styles.profileRow} activeOpacity={0.75} onPress={handleShowSignatureModal}>
+              <View style={styles.profileLeft}>
+                <View style={styles.profileIconWrap}>
+                  <Icon name="comment" rawSize={16} color="#5b6474" />
+                </View>
+                <Text size={14} color="#111827" style={styles.profileLabel}>{t('setting_profile_signature')}</Text>
+              </View>
+              <Icon name="chevron-right-2" rawSize={16} color="#9ca3af" />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.sectionCard}>
@@ -188,7 +240,7 @@ export default () => {
                         activeOpacity={0.8}
                         onPress={() => { handleSelectLanguage(option.locale) }}
                       >
-                        <Text size={13} color={isActive ? '#7f0df2' : '#374151'} style={styles.languageItemText}>{option.label}</Text>
+                        <Text size={13} color={isActive ? '#111827' : '#374151'} style={styles.languageItemText}>{option.label}</Text>
                         {isActive ? <View style={styles.languageActiveDot} /> : null}
                       </TouchableOpacity>
                     )
@@ -225,14 +277,14 @@ export default () => {
                 <View key={item.title} style={styles.item}>
                   <View style={styles.left}>
                     <View style={styles.iconBox}>
-                      <Icon name={item.icon} rawSize={18} color="#7f0df2" />
+                      <Icon name={item.icon} rawSize={18} color="#111827" />
                     </View>
                     <View style={styles.textWrap}>
                       <Text size={14} color="#111827" style={styles.itemTitle}>{item.title}</Text>
                       <Text size={11} color="#6b7280">{item.subtitle}</Text>
                     </View>
                   </View>
-                  <Switch value={item.enabled} trackColor={{ false: '#d1d5db', true: '#c4b5fd' }} thumbColor={item.enabled ? '#7f0df2' : '#f9fafb'} />
+                  <Switch value={item.enabled} trackColor={{ false: '#d1d5db', true: '#9ca3af' }} thumbColor={item.enabled ? '#111827' : '#f9fafb'} />
                 </View>
               ))}
             </View>
@@ -263,6 +315,37 @@ export default () => {
                     <Text size={14} color="#4b5563">{t('cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleSaveName} activeOpacity={0.85}>
+                    <Text size={14} color="#111827" style={styles.modalBtnPrimaryText}>{t('metadata_edit_modal_confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+      <Modal
+        visible={isSignatureModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={handleCloseSignatureModal}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalCard}>
+                <Text size={17} color="#111827" style={styles.modalTitle}>{t('setting_profile_signature_edit')}</Text>
+                <Input
+                  placeholder={t('setting_profile_signature_placeholder')}
+                  value={signatureDraft}
+                  onChangeText={setSignatureDraft}
+                  style={[styles.modalInput, { backgroundColor: theme['c-primary-background'] }]}
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={[styles.modalBtn, styles.modalBtnGhost]} onPress={handleCloseSignatureModal} activeOpacity={0.75}>
+                    <Text size={14} color="#4b5563">{t('cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={handleSaveSignature} activeOpacity={0.85}>
                     <Text size={14} color="#111827" style={styles.modalBtnPrimaryText}>{t('metadata_edit_modal_confirm')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -413,7 +496,7 @@ const styles = createStyle({
     justifyContent: 'space-between',
   },
   languageItemActive: {
-    backgroundColor: '#f5f3ff',
+    backgroundColor: '#f3f4f6',
   },
   languageItemText: {
     fontWeight: '600',
@@ -422,7 +505,7 @@ const styles = createStyle({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#7f0df2',
+    backgroundColor: '#111827',
   },
   item: {
     borderRadius: 12,
@@ -446,7 +529,7 @@ const styles = createStyle({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#f3e8ff',
+    backgroundColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
   },

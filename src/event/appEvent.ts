@@ -3,6 +3,7 @@ import Event from './Event'
 import commonState from '@/store/common/state'
 import { type Source as SonglistSource } from '@/store/songlist/state'
 import { type SearchType } from '@/store/search/state'
+import { type PermissionPromptAction, type PermissionPromptPayload } from '@/types/permissionPrompt'
 
 
 // {
@@ -208,6 +209,18 @@ export class AppEvent extends Event {
 
   userNameUpdated(name: string) {
     this.emit('userNameUpdated', name)
+  }
+
+  userSignatureUpdated(signature: string) {
+    this.emit('userSignatureUpdated', signature)
+  }
+
+  showPermissionPrompt(payload: PermissionPromptPayload) {
+    this.emit('showPermissionPrompt', payload)
+  }
+
+  permissionPromptResult(requestId: string, action: PermissionPromptAction) {
+    this.emit('permissionPromptResult', requestId, action)
   }
 }
 
