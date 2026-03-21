@@ -1,7 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TouchableOpacity, View } from 'react-native'
+import Svg, { Circle } from 'react-native-svg'
 import { useKeyboard } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
+import { scaleSizeW } from '@/utils/pixelRatio'
 import Image from '@/components/common/Image'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -14,12 +16,14 @@ import { getListMusics } from '@/core/list'
 import { LIST_IDS } from '@/config/constant'
 import { useI18n } from '@/lang'
 
-const RING_SIZE = 54
 const COVER_SIZE = 44
-const COVER_OFFSET = (RING_SIZE - COVER_SIZE) / 2
-const RING_DOT_COUNT = 72
-const RING_DOT_SIZE = 2.4
-const RING_GAP = 2.2
+const RING_BORDER_WIDTH_RAW = 2
+const COVER_INNER_SIZE = COVER_SIZE - RING_BORDER_WIDTH_RAW * 2
+const RING_RENDER_SIZE = scaleSizeW(COVER_SIZE)
+const RING_BORDER_WIDTH = scaleSizeW(RING_BORDER_WIDTH_RAW)
+const CIRCLE_CENTER = RING_RENDER_SIZE / 2
+const RING_RADIUS = (RING_RENDER_SIZE - RING_BORDER_WIDTH) / 2
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
 const sourceRingColorMap: Record<string, string> = {
   tx: '#31c27c',
@@ -30,9 +34,23 @@ const sourceRingColorMap: Record<string, string> = {
   local: '#64748b',
 }
 
+const SOURCE_RING_LIGHTEN_RATIO = 0.22
+
+const lightenHex = (hex: string, ratio: number) => {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex)
+  if (!match) return hex
+  const value = match[1]
+  const channel = (offset: number) => {
+    const raw = parseInt(value.slice(offset, offset + 2), 16)
+    const mixed = Math.round(raw + (255 - raw) * ratio)
+    return mixed.toString(16).padStart(2, '0')
+  }
+  return `#${channel(0)}${channel(2)}${channel(4)}`
+}
+
 const getSourceColor = (source: string | null | undefined) => {
-  if (!source) return '#111827'
-  return sourceRingColorMap[source.toLowerCase()] ?? '#111827'
+  const baseColor = !source ? '#111827' : (sourceRingColorMap[source.toLowerCase()] ?? '#111827')
+  return lightenHex(baseColor, SOURCE_RING_LIGHTEN_RATIO)
 }
 
 const getTrackColor = (hex: string) => {
@@ -67,24 +85,9 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
     if (progress >= 1) return 1
     return progress
   }, [musicInfo.id, progress])
-  const activeDots = useMemo(() => Math.round(normalizedProgress * RING_DOT_COUNT), [normalizedProgress])
-  const ringDots = useMemo(() => {
-    const center = COVER_OFFSET + (COVER_SIZE / 2)
-    const radius = (COVER_SIZE / 2) + RING_GAP + (RING_DOT_SIZE / 2)
-    return Array.from({ length: RING_DOT_COUNT }, (_, index) => {
-      const angle = (-Math.PI / 2) + (index / RING_DOT_COUNT) * Math.PI * 2
-      const x = Math.round((center + Math.cos(angle) * radius - (RING_DOT_SIZE / 2)) * 10) / 10
-      const y = Math.round((center + Math.sin(angle) * radius - (RING_DOT_SIZE / 2)) * 10) / 10
-      const isActive = index < activeDots
-      return {
-        key: `ring_dot_${index}`,
-        x,
-        y,
-        backgroundColor: isActive ? ringColor : trackColor,
-        opacity: isActive ? 1 : 0.65,
-      }
-    })
-  }, [activeDots, ringColor, trackColor])
+  const progressStrokeOffset = useMemo(() => {
+    return RING_CIRCUMFERENCE * (1 - normalizedProgress)
+  }, [normalizedProgress])
 
   const showPlayDetail = () => {
     if (!musicInfo.id) return
@@ -141,25 +144,31 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
         >
           <View style={styles.left}>
             <View style={styles.ring}>
-              <View style={styles.ringDotsLayer}>
-                {ringDots.map(dot => (
-                  <View
-                    key={dot.key}
-                    style={[
-                      styles.ringDot,
-                      {
-                        left: dot.x,
-                        top: dot.y,
-                        backgroundColor: dot.backgroundColor,
-                        opacity: dot.opacity,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-              <View style={styles.picWrap}>
+              <View style={styles.coverClip}>
                 <Image url={musicInfo.pic} style={styles.pic} />
               </View>
+              <Svg width={RING_RENDER_SIZE} height={RING_RENDER_SIZE} style={styles.ringSvg} pointerEvents="none">
+                <Circle
+                  cx={CIRCLE_CENTER}
+                  cy={CIRCLE_CENTER}
+                  r={RING_RADIUS}
+                  stroke={trackColor}
+                  strokeWidth={RING_BORDER_WIDTH}
+                  fill="none"
+                />
+                <Circle
+                  cx={CIRCLE_CENTER}
+                  cy={CIRCLE_CENTER}
+                  r={RING_RADIUS}
+                  stroke={ringColor}
+                  strokeWidth={RING_BORDER_WIDTH}
+                  fill="none"
+                  strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                  strokeDashoffset={progressStrokeOffset}
+                  transform={`rotate(-90 ${CIRCLE_CENTER} ${CIRCLE_CENTER})`}
+                  opacity={normalizedProgress > 0 ? 1 : 0}
+                />
+              </Svg>
             </View>
           </View>
           <View style={styles.center}>
@@ -218,42 +227,28 @@ const styles = createStyle({
     marginRight: 10,
   },
   ring: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
+    width: COVER_SIZE,
+    height: COVER_SIZE,
+    borderRadius: scaleSizeW(COVER_SIZE / 2),
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ringDotsLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    pointerEvents: 'none',
-  },
-  ringDot: {
-    position: 'absolute',
-    width: RING_DOT_SIZE,
-    height: RING_DOT_SIZE,
-    borderRadius: RING_DOT_SIZE / 2,
-  },
-  picWrap: {
-    position: 'absolute',
-    top: COVER_OFFSET,
-    left: COVER_OFFSET,
-    width: COVER_SIZE,
-    height: COVER_SIZE,
-    borderRadius: COVER_SIZE / 2,
+  coverClip: {
+    width: COVER_INNER_SIZE,
+    height: COVER_INNER_SIZE,
+    borderRadius: scaleSizeW(COVER_INNER_SIZE / 2),
     overflow: 'hidden',
   },
   pic: {
     width: '100%',
     height: '100%',
-    borderRadius: COVER_SIZE / 2,
-    borderWidth: 2,
-    borderColor: '#ffffff',
+    borderRadius: scaleSizeW(COVER_INNER_SIZE / 2),
+  },
+  ringSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   center: {
     flex: 1,

@@ -1,6 +1,6 @@
 // import resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource'
 import defaultUrl from '@/resources/medias/Silence02s.mp3'
-import notificationIcon from '@/resources/images/notification.xhdpi.png'
+import notificationIcon from '@/resources/images/notification_whitebg.xhdpi.png'
 // const defaultUrl = resolveAssetSource(resourceDefaultUrl).uri
 
 export {
