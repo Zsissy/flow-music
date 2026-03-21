@@ -2,6 +2,27 @@
 
 本文档用于记录本仓库（fork 分支）的版本变更历史。
 
+## [0.0.7] - 2026-03-21
+
+### 调整
+
+- 通知栏图标加载策略调整：Android 改为使用原生 `drawable` 资源名（`notification_whitebg`）加载，避免直接使用打包图片路径带来的兼容问题。
+- 设置页中文文案优化：`setting_about` 由“关于 LX Music”简化为“关于”。
+
+### 资源
+
+- 新增 Android 通知栏小图标多密度资源：
+  - `drawable-mdpi/notification_whitebg.png`
+  - `drawable-hdpi/notification_whitebg.png`
+  - `drawable-xhdpi/notification_whitebg.png`
+  - `drawable-xxhdpi/notification_whitebg.png`
+  - `drawable-xxxhdpi/notification_whitebg.png`
+
+### 构建
+
+- 版本号统一为 `0.0.7`（`package.json`、`package-lock.json`、iOS 工程）。
+- Android `versionCode` 升级到 `78`。
+
 ## [0.0.6] - 2026-03-21
 
 ### 新增
