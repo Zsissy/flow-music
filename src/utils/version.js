@@ -1,5 +1,5 @@
 import { httpGet } from '@/utils/request'
-import { downloadFile, stopDownload, temporaryDirectoryPath } from '@/utils/fs'
+import { downloadFile, existsFile, privateStorageDirectoryPath, stopDownload, temporaryDirectoryPath, unlink } from '@/utils/fs'
 import { getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
 
@@ -16,6 +16,10 @@ const abis = [
   'x86',
   'universal',
 ]
+const defaultAbi = 'universal'
+const apkFileName = 'lux-music-mobile-update.apk'
+const downloadConnectionTimeout = 60000
+const downloadReadTimeout = 600000
 
 const address = [
   [`https://raw.githubusercontent.com/${updateRepo.owner}/${updateRepo.name}/master/publish/version.json`, 'direct'],
@@ -75,54 +79,96 @@ export const getVersionInfo = async(index = 0) => {
   })
 }
 
-const getTargetAbi = async() => {
-  const supportedAbis = await getSupportedAbis()
+const getTargetAbis = async() => {
+  const supportedAbis = await getSupportedAbis().catch(() => [])
+  const targetAbis = []
+
   for (const abi of abis) {
-    if (supportedAbis.includes(abi)) return abi
+    if (abi == defaultAbi) continue
+    if (supportedAbis.includes(abi)) targetAbis.push(abi)
   }
-  return abis[abis.length - 1]
+
+  if (!targetAbis.length || !targetAbis.includes(defaultAbi)) targetAbis.push(defaultAbi)
+
+  return targetAbis
 }
 let downloadJobId = null
 const noop = (total, download) => {}
 let apkSavePath
 export const isVersionDownloadActive = () => downloadJobId != null
 
-export const downloadNewVersion = async(version, onDownload = noop) => {
-  const abi = await getTargetAbi()
-  const url = `https://github.com/${updateRepo.owner}/${updateRepo.name}/releases/download/v${version}/${releaseAssetNamePrefix}-v${version}-${abi}.apk`
-  const savePath = temporaryDirectoryPath + '/lux-music-mobile.apk'
+const savePaths = [
+  `${privateStorageDirectoryPath}/${apkFileName}`,
+  `${temporaryDirectoryPath}/${apkFileName}`,
+]
 
-  if (downloadJobId != null) {
-    stopDownload(downloadJobId)
-    downloadJobId = null
-  }
+const ensureCleanSavePath = async(savePath) => {
+  try {
+    if (await existsFile(savePath)) await unlink(savePath)
+  } catch {}
+}
+
+const downloadFromUrl = async(url, savePath, onDownload) => {
+  let beginStatusCode = 0
+  let beginContentLength = 0
 
   const { jobId, promise } = downloadFile(url, savePath, {
     progressInterval: 500,
-    connectionTimeout: 30000,
-    readTimeout: 120000,
+    connectionTimeout: downloadConnectionTimeout,
+    readTimeout: downloadReadTimeout,
     begin({ statusCode, contentLength }) {
+      beginStatusCode = statusCode
+      beginContentLength = contentLength || 0
       onDownload(contentLength, 0)
-      // switch (statusCode) {
-      //   case 200:
-      //   case 206:
-      //     break
-      //   default:
-      //     onDownload(null, contentLength, 0)
-      //     break
-      // }
     },
     progress({ contentLength, bytesWritten }) {
       onDownload(contentLength, bytesWritten)
     },
   })
+
   downloadJobId = jobId
-  return promise.then(() => {
-    apkSavePath = savePath
-    return updateApp()
+
+  return promise.then(({ statusCode, bytesWritten }) => {
+    const targetStatusCode = statusCode || beginStatusCode
+    if (targetStatusCode < 200 || targetStatusCode >= 300) {
+      throw new Error(`unexpected statusCode: ${targetStatusCode}`)
+    }
+    if (beginContentLength > 0 && bytesWritten < beginContentLength) {
+      throw new Error(`incomplete download: ${bytesWritten}/${beginContentLength}`)
+    }
+    return bytesWritten
   }).finally(() => {
     if (downloadJobId == jobId) downloadJobId = null
   })
+}
+
+export const downloadNewVersion = async(version, onDownload = noop) => {
+  const targetAbis = await getTargetAbis()
+  if (downloadJobId != null) {
+    stopDownload(downloadJobId)
+    downloadJobId = null
+  }
+
+  let lastError = null
+  for (const abi of targetAbis) {
+    const url = `https://github.com/${updateRepo.owner}/${updateRepo.name}/releases/download/v${version}/${releaseAssetNamePrefix}-v${version}-${abi}.apk`
+
+    for (const savePath of savePaths) {
+      await ensureCleanSavePath(savePath)
+      try {
+        await downloadFromUrl(url, savePath, onDownload)
+      } catch (err) {
+        lastError = err
+        continue
+      }
+
+      apkSavePath = savePath
+      await updateApp()
+      return
+    }
+  }
+
+  throw lastError || new Error('download failed')
 }
 
 export const updateApp = async() => {
