@@ -69,3 +69,4 @@ buck-out/
 /coverage
 /.claude
 keystore.base64.txt
+CLAUDE.md

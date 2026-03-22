@@ -65,7 +65,17 @@ export default () => {
       current: sizeFormate(versionProgress.current),
       progress: versionProgress.total ? (versionProgress.current / versionProgress.total * 100).toFixed(2) : '0',
     })
-    : t('version_tip_latest')
+    : versionInfo.isLatest
+      ? t('version_tip_latest')
+      : versionInfo.isUnknown
+        ? t('version_tip_unknown')
+        : versionInfo.status == 'checking'
+          ? t('version_title_checking')
+          : versionInfo.status == 'downloaded'
+            ? t('version_title_update')
+            : versionInfo.status == 'error'
+              ? t('version_tip_failed')
+              : t('version_title_new')
 
   useEffect(() => {
     let isUnmounted = false

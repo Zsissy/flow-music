@@ -178,7 +178,12 @@ const handleAppStateChange = (nextState: AppStateStatus) => {
     return
   }
 
-  if (versionState.versionInfo.status == 'downloaded') return
+  if (versionState.versionInfo.status == 'downloaded') {
+    // Returning from installer does not guarantee install succeeded; re-check actual app version.
+    versionActions.setVersionInfo({ status: 'idle' })
+    void checkUpdate({ force: true })
+    return
+  }
 
   void checkUpdate({ throttleMs: foregroundCheckThrottleMs })
 }

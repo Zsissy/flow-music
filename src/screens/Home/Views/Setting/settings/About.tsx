@@ -24,13 +24,23 @@ export default memo(() => {
   const t = useI18n()
   const versionInfo = useVersionInfo()
   const progress = useVersionDownloadProgressUpdated()
-  const downloadProgressText = versionInfo.status == 'downloading'
+  const versionStatusText = versionInfo.status == 'downloading'
     ? t('version_btn_downloading', {
       total: sizeFormate(progress.total),
       current: sizeFormate(progress.current),
       progress: progress.total ? (progress.current / progress.total * 100).toFixed(2) : '0',
     })
-    : ''
+    : versionInfo.isLatest
+      ? t('version_tip_latest')
+      : versionInfo.isUnknown
+        ? t('version_tip_unknown')
+        : versionInfo.status == 'checking'
+          ? t('version_title_checking')
+          : versionInfo.status == 'downloaded'
+            ? t('version_title_update')
+            : versionInfo.status == 'error'
+              ? t('version_tip_failed')
+              : t('version_title_new')
   const openHomePage = () => {
     void openUrl('https://github.com/lyswhut/lx-music-mobile#readme')
   }
@@ -86,18 +96,12 @@ export default memo(() => {
           <Text style={textLinkStyle}>GitHub Releases</Text>
         </TouchableOpacity>
       </View>
-      {downloadProgressText
-        ? <View style={styles.part}>
-            <Text style={styles.text}>{downloadProgressText}</Text>
-          </View>
-        : <>
-            <View style={styles.part}>
-              <Text style={styles.text}>{t('version_label_current_ver')}{currentVer}</Text>
-            </View>
-            <View style={styles.part}>
-              <Text style={styles.text}>{t('version_tip_latest')}</Text>
-            </View>
-          </>}
+      <View style={styles.part}>
+        <Text style={styles.text}>{t('version_label_current_ver')}{currentVer}</Text>
+      </View>
+      <View style={styles.part}>
+        <Text style={styles.text}>{versionStatusText}</Text>
+      </View>
       <View style={styles.part}>
         <Text style={styles.text} >软件的常见问题可转至：</Text>
         <TouchableOpacity onPress={openFAQPage}>
