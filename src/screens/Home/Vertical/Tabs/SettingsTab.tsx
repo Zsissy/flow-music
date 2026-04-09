@@ -16,6 +16,7 @@ import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { setLanguage } from '@/core/common'
 import { useVersionDownloadProgressUpdated, useVersionInfo } from '@/store/version/hook'
+import PantonePinkGradientBg from '@/components/common/PantonePinkGradientBg'
 
 const SHOW_ADVANCED_SWITCHES = false
 const DEFAULT_USER_NAME = 'Alex Rivera'
@@ -188,6 +189,7 @@ export default () => {
 
   return (
     <View style={styles.container}>
+      <PantonePinkGradientBg />
       <View style={[styles.header, styles.headerFloating, { paddingTop: headerTopPadding }]}>
         <View style={styles.searchWrap}>
           <Icon name="search-2" rawSize={18} color="#9ca3af" />
@@ -404,7 +406,7 @@ export default () => {
 const styles = createStyle({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   content: {
     paddingBottom: 18,
@@ -423,7 +425,7 @@ const styles = createStyle({
     right: 0,
     zIndex: APP_LAYER_INDEX.controls,
     elevation: 0,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   searchWrap: {
     height: 46,

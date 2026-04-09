@@ -2,6 +2,7 @@ import { memo, useEffect, useRef } from 'react'
 import { View, TouchableOpacity, FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type FlatListProps } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
+import { LiquidIconFrame } from '@/components/common/LiquidIcon'
 
 import { useTheme } from '@/store/theme/hook'
 import { useActiveListId, useMyList } from '@/store/list/hook'
@@ -42,8 +43,13 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
   }
 
   return (
-    <View style={{ ...styles.listItem, height: ITEM_HEIGHT, borderColor: theme['c-border-background'], backgroundColor: theme['c-main-background'] }}>
-      <View style={{ ...styles.cover, backgroundColor: theme['c-primary-light-900-alpha-200'] }}>
+    <View style={[styles.listItem, { height: ITEM_HEIGHT }, active ? styles.listItemActive : null]}>
+      <View pointerEvents="none" style={[styles.listItemGlassBase, active ? styles.listItemGlassBaseActive : null]} />
+      <View pointerEvents="none" style={styles.listItemGlassTone} />
+      <View pointerEvents="none" style={styles.listItemGlassGlossTop} />
+      <View pointerEvents="none" style={styles.listItemGlassInnerBorder} />
+      <View pointerEvents="none" style={styles.listItemGlassEdgeGlow} />
+      <View style={[styles.cover, active ? styles.coverActive : null]}>
         <Text size={12} color={theme['c-primary']}>{item.name.slice(0, 1)}</Text>
       </View>
       <TouchableOpacity style={styles.listName} onPress={handlePress}>
@@ -51,7 +57,9 @@ const ListItem = memo(({ item, index, activeId, onPress, onShowMenu }: {
         <Text size={11} color={theme['c-500']}>Playlist</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.listMoreBtn}>
-        <Icon name="dots-vertical" color={theme['c-350']} size={12} />
+        <LiquidIconFrame style={styles.listMoreIcon}>
+          <Icon name="dots-vertical" color={theme['c-350']} size={12} />
+        </LiquidIconFrame>
       </TouchableOpacity>
     </View>
   )
@@ -140,28 +148,95 @@ const styles = createStyle({
   // },
 
   listItem: {
+    position: 'relative',
     height: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 8,
     paddingLeft: 8,
     borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 18,
+    borderColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(206,220,228,0.4)',
+    overflow: 'hidden',
+    marginBottom: 10,
+    shadowColor: '#9db4c1',
+    shadowOpacity: 0.28,
+    shadowRadius: 13,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 7,
+  },
+  listItemActive: {
+    shadowOpacity: 0.34,
+    shadowRadius: 15,
+    elevation: 9,
+  },
+  listItemGlassBase: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(190,208,218,0.34)',
+  },
+  listItemGlassBaseActive: {
+    backgroundColor: 'rgba(186,206,218,0.42)',
+  },
+  listItemGlassTone: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(224,232,238,0.14)',
+  },
+  listItemGlassGlossTop: {
+    position: 'absolute',
+    left: 7,
+    right: 7,
+    top: 5,
+    height: 18,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  listItemGlassInnerBorder: {
+    position: 'absolute',
+    left: 1.5,
+    top: 1.5,
+    right: 1.5,
+    bottom: 1.5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  listItemGlassEdgeGlow: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: 4,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   cover: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(221,233,240,0.28)',
+  },
+  coverActive: {
+    backgroundColor: 'rgba(225,236,244,0.38)',
   },
   listName: {
     height: '100%',
     justifyContent: 'center',
     flexGrow: 1,
     flexShrink: 1,
-    paddingLeft: 10,
+    paddingLeft: 12,
   },
   // listNameText: {
   //   // height: 46,
@@ -169,9 +244,13 @@ const styles = createStyle({
   // },
   listMoreBtn: {
     height: '100%',
-    width: 36,
+    width: 42,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  listMoreIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+  },
 })
-

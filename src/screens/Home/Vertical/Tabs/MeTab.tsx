@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Dimensions,
@@ -8,7 +8,9 @@ import {
   Modal,
   PanResponder,
   Platform,
+  Pressable,
   ScrollView,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
   UIManager,
@@ -126,6 +128,11 @@ const SONG_DRAG_ROW_FALLBACK_HEIGHT = 72
 const SONG_DRAG_AUTO_SCROLL_EDGE = 96
 const SONG_DRAG_AUTO_SCROLL_SPEED = 16
 const SONG_DRAG_LAYOUT_ANIMATION_MAX_ITEMS = 240
+const APP_BG = '#FDE2E4'
+const GLASS_BG = 'rgba(255,255,255,0.40)'
+const GLASS_BG_SOFT = 'rgba(255,255,255,0.28)'
+const GLASS_BORDER = 'rgba(255,255,255,0.58)'
+const QQ_GREEN = '#31c27c'
 
 const clampIndex = (value: number, max: number) => {
   if (max < 0) return 0
@@ -141,12 +148,73 @@ const moveArrayItem = <T,>(list: T[], from: number, to: number) => {
   return next
 }
 
+const QuickFloatingGradient = (_: { active?: boolean }) => null
+
+const PageBackdrop = () => (
+  <View pointerEvents="none" style={styles.backdropLayer}>
+    <View style={[styles.backdropOrb, styles.backdropOrbPrimary]} />
+    <View style={[styles.backdropOrb, styles.backdropOrbSecondary]} />
+    <View style={[styles.backdropOrb, styles.backdropOrbTertiary]} />
+  </View>
+)
+
+type LiquidIconTone = 'default' | 'danger'
+const LiquidIconFrame = ({
+  children,
+  style,
+  active = false,
+  tone = 'default',
+}: {
+  children: ReactNode
+  style?: any
+  active?: boolean
+  tone?: LiquidIconTone
+}) => (
+  <View
+    style={[
+      styles.liquidIconFrame,
+      active ? styles.liquidIconFrameActive : null,
+      tone == 'danger' ? styles.liquidIconFrameDanger : null,
+      style,
+    ]}
+  >
+    {children}
+  </View>
+)
+
+const LiquidIconButton = ({
+  children,
+  style,
+  onPress,
+  active = false,
+  tone = 'default',
+  activeOpacity = 0.82,
+}: {
+  children: ReactNode
+  style?: any
+  onPress?: () => void
+  active?: boolean
+  tone?: LiquidIconTone
+  activeOpacity?: number
+}) => (
+  <TouchableOpacity
+    style={style}
+    activeOpacity={activeOpacity}
+    onPress={onPress}
+    disabled={!onPress}
+  >
+    <LiquidIconFrame style={styles.liquidIconFill} active={active} tone={tone}>
+      {children}
+    </LiquidIconFrame>
+  </TouchableOpacity>
+)
+
 export default () => {
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
   const bottomDockHeight = BOTTOM_DOCK_BASE_HEIGHT
   const headerTopPadding = statusBarHeight + 8
-  const headerHeight = headerTopPadding + 46 + 8
+  const headerHeight = headerTopPadding + 48 + 10
   const modalBottomInset = useMemo(() => {
     const screenHeight = Dimensions.get('screen').height
     const windowHeight = Dimensions.get('window').height
@@ -181,6 +249,9 @@ export default () => {
   const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([])
   const [importSelectedMap, setImportSelectedMap] = useState<Record<string, true>>({})
   const [playlistSortMode, setPlaylistSortMode] = useState<'default' | 'time'>('default')
+  const [activeQuickCard, setActiveQuickCard] = useState<'love' | 'default' | null>(null)
+  const loveQuickCardAnim = useRef(new Animated.Value(0)).current
+  const defaultQuickCardAnim = useRef(new Animated.Value(0)).current
   const detailRequestIdRef = useRef(0)
   const importRequestIdRef = useRef(0)
   const searchRequestIdRef = useRef(0)
@@ -248,6 +319,29 @@ export default () => {
   const defaultSongsCount = defaultPlaylist ? playlistMetaMap[defaultPlaylist.id]?.count ?? 0 : 0
   const isPlaylistTimeSort = playlistSortMode == 'time'
   const playlistSortIcon = isPlaylistTimeSort ? 'sort-ascending' : 'sort-descending'
+  const handleQuickCardInteractive = useCallback((key: 'love' | 'default', isActive: boolean) => {
+    const target = key == 'love' ? loveQuickCardAnim : defaultQuickCardAnim
+    Animated.spring(target, {
+      toValue: isActive ? 1 : 0,
+      useNativeDriver: false,
+      speed: 18,
+      bounciness: 8,
+    }).start()
+    setActiveQuickCard((prev) => {
+      if (isActive) return key
+      return prev == key ? null : prev
+    })
+  }, [defaultQuickCardAnim, loveQuickCardAnim])
+  const loveCardScale = loveQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] })
+  const loveCardOffset = loveQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -2.5] })
+  const loveCardShadowOpacity = loveQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] })
+  const loveCardShadowRadius = loveQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] })
+  const loveCardElevation = loveQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] })
+  const defaultCardScale = defaultQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] })
+  const defaultCardOffset = defaultQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -2.5] })
+  const defaultCardShadowOpacity = defaultQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] })
+  const defaultCardShadowRadius = defaultQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] })
+  const defaultCardElevation = defaultQuickCardAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0] })
 
   useEffect(() => {
     return () => {
@@ -873,6 +967,7 @@ export default () => {
         <Animated.View
           style={[
             styles.songItem,
+            styles.detailSongItem,
             isDraggingRow ? styles.songItemGhost : null,
             { transform: [{ translateY: shiftAnim }] },
           ]}
@@ -894,24 +989,20 @@ export default () => {
               void handlePlaySong(selectedListId, item, index)
             }}
           >
-            <Image style={styles.songPic} url={item.meta.picUrl ?? null} />
-            <View style={styles.songInfo}>
-              <Text size={14} color="#111827" style={styles.listTitle} numberOfLines={1}>{item.name}</Text>
+            <Image style={[styles.songPic, styles.detailSongPic]} url={item.meta.picUrl ?? null} />
+            <View style={[styles.songInfo, styles.detailSongInfo]}>
+              <Text size={13} color="#111827" style={styles.listTitle} numberOfLines={1}>{item.name}</Text>
               <View style={styles.songMetaRow}>
-                <Text size={10} color={sourceTagColor.text} style={[styles.songSource, { backgroundColor: sourceTagColor.background }]}>{item.source.toUpperCase()}</Text>
-                <Text size={11} color="#6b7280" numberOfLines={1}>{item.singer}</Text>
+                <Text size={9} color={sourceTagColor.text} style={[styles.songSource, styles.detailSongSource, { backgroundColor: sourceTagColor.background }]}>{item.source.toUpperCase()}</Text>
+                <Text size={10} color="#6b7280" numberOfLines={1}>{item.singer}</Text>
               </View>
             </View>
           </TouchableOpacity>
-          <View style={styles.songActions}>
-            <Text size={11} color="#9ca3af" style={styles.songInterval}>{item.interval ?? '--:--'}</Text>
-            <TouchableOpacity
-              style={styles.songActionBtn}
-              activeOpacity={0.75}
-              onPress={() => { handleShowRemoveSongModal(item) }}
-            >
-              <MaterialCommunityIcon name="trash-can-outline" size={16} color="#9ca3af" />
-            </TouchableOpacity>
+          <View style={[styles.songActions, styles.detailSongActions]}>
+            <Text size={10} color="#9ca3af" style={[styles.songInterval, styles.detailSongInterval]}>{item.interval ?? '--:--'}</Text>
+            <LiquidIconButton style={[styles.songActionBtn, styles.detailSongActionBtn]} activeOpacity={0.75} onPress={() => { handleShowRemoveSongModal(item) }}>
+              <MaterialCommunityIcon name="trash-can-outline" size={14} color="#9ca3af" />
+            </LiquidIconButton>
           </View>
         </Animated.View>
       </View>
@@ -922,9 +1013,9 @@ export default () => {
     return (
       <>
         <View style={[styles.header, { paddingTop: statusBarHeight + 8 }]}>
-          <TouchableOpacity style={styles.detailBackBtn} activeOpacity={0.8} onPress={() => { resetSongDragState(); setSelectedListId(null) }}>
+          <LiquidIconButton style={styles.detailBackBtn} onPress={() => { resetSongDragState(); setSelectedListId(null) }}>
             <Icon name="chevron-left" rawSize={20} color="#111827" />
-          </TouchableOpacity>
+          </LiquidIconButton>
         </View>
 
         <View style={styles.detailHero}>
@@ -934,12 +1025,12 @@ export default () => {
               <Text size={22} color="#111827" style={[styles.profileName, styles.detailHeroName]} numberOfLines={1}>{selectedListInfo.name}</Text>
               {canRenameSelectedList
                 ? <View style={styles.detailHeroActions}>
-                    <TouchableOpacity style={styles.detailHeroIconBtn} activeOpacity={0.8} onPress={handleShowRenameListModal}>
+                    <LiquidIconButton style={styles.detailHeroIconBtn} onPress={handleShowRenameListModal}>
                       <MaterialCommunityIcon name="pencil-outline" size={16} color="#111827" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.detailHeroIconBtn, styles.detailHeroDeleteBtn]} activeOpacity={0.8} onPress={handleShowRemoveListModal}>
+                    </LiquidIconButton>
+                    <LiquidIconButton style={[styles.detailHeroIconBtn, styles.detailHeroDeleteBtn]} tone="danger" onPress={handleShowRemoveListModal}>
                       <MaterialCommunityIcon name="trash-can-outline" size={16} color="#dc2626" />
-                    </TouchableOpacity>
+                    </LiquidIconButton>
                   </View>
                 : null}
             </View>
@@ -947,8 +1038,8 @@ export default () => {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+        <View style={[styles.section, styles.playlistSection]}>
+          <View style={[styles.sectionHeader, styles.playlistSectionHeader]}>
             <Text size={18} color="#111827" style={styles.sectionTitle}>{t('me_songs')}</Text>
             <TouchableOpacity activeOpacity={0.8} onPress={handleOpenImportDrawer}>
               <Text size={13} color="#111827" style={styles.sectionTag}>{`+ ${t('list_import')}`}</Text>
@@ -1227,14 +1318,14 @@ export default () => {
         </TouchableOpacity>
         <View style={styles.searchSongActions}>
           <Text size={11} color="#9ca3af" style={styles.searchSongInterval}>{item.interval ?? '--:--'}</Text>
-          <TouchableOpacity style={styles.songActionBtn} activeOpacity={0.8} onPress={() => { void handleToggleSearchLoved(item) }}>
+          <LiquidIconButton style={styles.songActionBtn} onPress={() => { void handleToggleSearchLoved(item) }}>
             {isLoved
               ? <Text size={17} color="#ef4444" style={styles.searchLoveFilled}>{'\u2665'}</Text>
               : <Icon name="love" rawSize={17} color="#9ca3af" />}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.songActionBtn} activeOpacity={0.8} onPress={() => { handleShowMusicAddModal(item) }}>
+          </LiquidIconButton>
+          <LiquidIconButton style={styles.songActionBtn} onPress={() => { handleShowMusicAddModal(item) }}>
             <Text size={18} color="#9ca3af" style={styles.searchAddText}>+</Text>
-          </TouchableOpacity>
+          </LiquidIconButton>
         </View>
       </View>
     )
@@ -1248,9 +1339,9 @@ export default () => {
     return (
       <View style={[styles.searchResultHeader, { paddingTop: statusBarHeight + 8 }]}>
         <View style={styles.searchResultRow}>
-          <TouchableOpacity style={styles.detailBackBtn} activeOpacity={0.8} onPress={handleExitSearch}>
+          <LiquidIconButton style={styles.detailBackBtn} onPress={handleExitSearch}>
             <Icon name="chevron-left" rawSize={20} color="#111827" />
-          </TouchableOpacity>
+          </LiquidIconButton>
           <View style={styles.searchResultSearchWrap}>
             <View style={styles.searchWrap}>
               <Icon name="search-2" rawSize={18} color="#9ca3af" />
@@ -1306,10 +1397,12 @@ export default () => {
   }, [handleBeginSearchInputEdit, handleExitSearch, handleSearchInputBlur, handleSearchTextChange, handleSelectSource, handleSubmitSearch, isSearchInputEditing, isSourceMenuVisible, searchSource, searchSourceLabel, searchText, statusBarHeight, t, toggleSourceMenu])
 
   if (isSearchMode) {
-    const searchHeaderHeight = statusBarHeight + 8 + 46 + 8
+    const searchHeaderHeight = statusBarHeight + 8 + 48 + 10
     return (
       <>
-        <View style={styles.searchModeRoot}>
+        <View style={styles.pageRoot}>
+          <PageBackdrop />
+          <View style={styles.searchModeRoot}>
           <View style={styles.searchResultHeaderFloating}>
             {searchHeader}
           </View>
@@ -1395,6 +1488,7 @@ export default () => {
             alwaysBounceVertical={false}
             overScrollMode="never"
           />
+          </View>
         </View>
         <MusicAddModal ref={musicAddModalRef} />
       </>
@@ -1405,80 +1499,84 @@ export default () => {
     const draggingSourceTagColor = draggingSong ? getSourceTagColor(draggingSong.source) : null
     return (
       <>
-        <View
-          ref={detailListWrapRef}
-          style={styles.detailListWrap}
-          onLayout={handleDetailWrapLayout}
-          collapsable={false}
-          {...detailListPanResponder.panHandlers}
-        >
-          <FlatList
-            ref={detailListRef}
-            style={styles.container}
-            contentContainerStyle={[styles.detailContent, { paddingBottom: bottomDockHeight }]}
-            data={detailSongs}
-            renderItem={renderSongItem}
-            keyExtractor={(item, index) => getSongRowKey(item, index)}
-            ListHeaderComponent={detailHeader}
-            ListEmptyComponent={(
-              <View style={styles.emptyCard}>
-                <Text size={13} color="#6b7280">{detailLoading ? t('me_loading_songs') : t('me_no_songs')}</Text>
-              </View>
-            )}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={12}
-            windowSize={isSongDragActive ? 4 : 6}
-            maxToRenderPerBatch={isSongDragActive ? 6 : 8}
-            updateCellsBatchingPeriod={isSongDragActive ? 24 : 16}
-            removeClippedSubviews={false}
-            bounces={false}
-            alwaysBounceVertical={false}
-            overScrollMode="never"
-            onScroll={handleDetailListScroll}
-            onContentSizeChange={handleDetailListContentSizeChange}
-            scrollEventThrottle={16}
-            scrollEnabled={!isSongDragActive}
-          />
-          {draggingSong
-            ? <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.songDragOverlay,
-                  {
-                    transform: [{ translateY: dragTop }, { scale: dragScale }],
-                    opacity: dragOpacity,
-                  },
-                ]}
-              >
-                <View style={[styles.songItem, styles.songDragCard]}>
-                  <View style={styles.songMain}>
-                    <Image style={styles.songPic} url={draggingSong.meta.picUrl ?? null} />
-                    <View style={styles.songInfo}>
-                      <Text size={14} color="#111827" style={styles.listTitle} numberOfLines={1}>{draggingSong.name}</Text>
-                      <View style={styles.songMetaRow}>
-                        <Text
-                          size={10}
-                          color={draggingSourceTagColor?.text ?? '#111827'}
-                          style={[
-                            styles.songSource,
-                            { backgroundColor: draggingSourceTagColor?.background ?? '#e5e7eb' },
-                          ]}
-                        >
-                          {draggingSong.source.toUpperCase()}
-                        </Text>
-                        <Text size={11} color="#6b7280" numberOfLines={1}>{draggingSong.singer}</Text>
+        <View style={styles.pageRoot}>
+          <PageBackdrop />
+          <View
+            ref={detailListWrapRef}
+            style={styles.detailListWrap}
+            onLayout={handleDetailWrapLayout}
+            collapsable={false}
+            {...detailListPanResponder.panHandlers}
+          >
+            <FlatList
+              ref={detailListRef}
+              style={styles.container}
+              contentContainerStyle={[styles.detailContent, { paddingBottom: bottomDockHeight }]}
+              data={detailSongs}
+              renderItem={renderSongItem}
+              keyExtractor={(item, index) => getSongRowKey(item, index)}
+              ListHeaderComponent={detailHeader}
+              ListEmptyComponent={(
+                <View style={styles.emptyCard}>
+                  <Text size={13} color="#6b7280">{detailLoading ? t('me_loading_songs') : t('me_no_songs')}</Text>
+                </View>
+              )}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={12}
+              windowSize={isSongDragActive ? 4 : 6}
+              maxToRenderPerBatch={isSongDragActive ? 6 : 8}
+              updateCellsBatchingPeriod={isSongDragActive ? 24 : 16}
+              removeClippedSubviews={false}
+              bounces={false}
+              alwaysBounceVertical={false}
+              overScrollMode="never"
+              onScroll={handleDetailListScroll}
+              onContentSizeChange={handleDetailListContentSizeChange}
+              scrollEventThrottle={16}
+              scrollEnabled={!isSongDragActive}
+            />
+            {draggingSong
+              ? <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.songDragOverlay,
+                    {
+                      transform: [{ translateY: dragTop }, { scale: dragScale }],
+                      opacity: dragOpacity,
+                    },
+                  ]}
+                >
+                  <View style={[styles.songItem, styles.detailSongItem, styles.songDragCard]}>
+                    <View style={styles.songMain}>
+                      <Image style={[styles.songPic, styles.detailSongPic]} url={draggingSong.meta.picUrl ?? null} />
+                      <View style={[styles.songInfo, styles.detailSongInfo]}>
+                        <Text size={13} color="#111827" style={styles.listTitle} numberOfLines={1}>{draggingSong.name}</Text>
+                        <View style={styles.songMetaRow}>
+                          <Text
+                            size={9}
+                            color={draggingSourceTagColor?.text ?? '#111827'}
+                            style={[
+                              styles.songSource,
+                              styles.detailSongSource,
+                              { backgroundColor: draggingSourceTagColor?.background ?? '#e5e7eb' },
+                            ]}
+                          >
+                            {draggingSong.source.toUpperCase()}
+                          </Text>
+                          <Text size={10} color="#6b7280" numberOfLines={1}>{draggingSong.singer}</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                  <View style={styles.songActions}>
-                    <Text size={11} color="#9ca3af" style={styles.songInterval}>{draggingSong.interval ?? '--:--'}</Text>
-                    <View style={styles.songActionBtn}>
-                      <MaterialCommunityIcon name="drag-horizontal-variant" size={16} color="#6b7280" />
+                    <View style={[styles.songActions, styles.detailSongActions]}>
+                      <Text size={10} color="#9ca3af" style={[styles.songInterval, styles.detailSongInterval]}>{draggingSong.interval ?? '--:--'}</Text>
+                      <LiquidIconFrame style={[styles.songActionBtn, styles.detailSongActionBtn]}>
+                        <MaterialCommunityIcon name="drag-horizontal-variant" size={14} color="#6b7280" />
+                      </LiquidIconFrame>
                     </View>
                   </View>
-                </View>
-              </Animated.View>
-            : null}
+                </Animated.View>
+              : null}
+          </View>
         </View>
         <Modal
           transparent={true}
@@ -1556,151 +1654,210 @@ export default () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, styles.headerFloating, { paddingTop: headerTopPadding }]}>
-        <View style={styles.searchWrap}>
-          <Icon name="search-2" rawSize={18} color="#9ca3af" />
-          <TouchableOpacity style={styles.searchInputTrigger} activeOpacity={0.85} onPress={handleEnterSearchMode}>
-            <Text size={13} color={searchText ? '#111827' : '#9ca3af'} numberOfLines={1}>
-              {searchText || t('me_search_placeholder')}
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.sourceMenuAnchor}>
-            <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
-              <View style={styles.sourceCapsule}>
-                <Text size={12} color="#111827" style={styles.sourceText}>{searchSourceLabel}</Text>
-                <Icon name="chevron-right-2" rawSize={13} color="#6b7280" style={styles.sourceChevron} />
-              </View>
+    <View style={styles.pageRoot}>
+      <PageBackdrop />
+      <View style={styles.container}>
+        <View style={[styles.header, styles.headerFloating, { paddingTop: headerTopPadding }]}>
+          <View style={styles.searchWrap}>
+            <Icon name="search-2" rawSize={18} color="#9ca3af" />
+            <TouchableOpacity style={styles.searchInputTrigger} activeOpacity={0.85} onPress={handleEnterSearchMode}>
+              <Text size={13} color={searchText ? '#111827' : '#9ca3af'} numberOfLines={1}>
+                {searchText || t('me_search_placeholder')}
+              </Text>
             </TouchableOpacity>
-            {isSourceMenuVisible
-              ? <View style={styles.sourceMenuPanelFloat}>
-                  <View style={styles.sourcePanel}>
-                    {sourceMenus.map(menu => (
-                      <TouchableOpacity
-                        key={menu.action}
-                        activeOpacity={0.85}
-                        style={[styles.sourcePanelItem, menu.action === searchSource ? styles.sourcePanelItemActive : null]}
-                        onPress={() => { handleSelectSource(menu.action) }}
-                      >
-                        <Text size={12} color={menu.action === searchSource ? '#111827' : '#374151'} style={styles.sourcePanelText}>{menu.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+            <View style={styles.sourceMenuAnchor}>
+              <TouchableOpacity style={styles.sourceMenuBtn} activeOpacity={0.85} onPress={toggleSourceMenu}>
+                <View style={styles.sourceCapsule}>
+                  <Text size={12} color="#111827" style={styles.sourceText}>{searchSourceLabel}</Text>
+                  <Icon name="chevron-right-2" rawSize={13} color="#6b7280" style={styles.sourceChevron} />
                 </View>
-              : null}
-          </View>
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: headerHeight + 2, paddingBottom: bottomDockHeight }]}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        alwaysBounceVertical={false}
-        overScrollMode="never"
-      >
-        <View style={styles.profileSection}>
-          <View style={styles.avatarWrap}>
-            <Image
-              style={styles.avatar}
-              url={avatarUrl}
-            />
-          </View>
-          <View style={styles.profileInfo}>
-            <Text size={24} color="#111827" style={styles.profileName}>{userName}</Text>
-            <Text size={12} color="#6b7280">{userSignature || t('me_profile_status')}</Text>
-          </View>
-        </View>
-
-        <View style={styles.quickRow}>
-          <TouchableOpacity
-            style={styles.quickCard}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (lovePlaylist) handleOpenList(lovePlaylist)
-            }}
-          >
-            <View style={[styles.quickIconBox, { backgroundColor: '#fee2e2' }]}>
-              <Text size={17} color="#ef4444" style={styles.quickLoveIcon}>{'\u2665'}</Text>
-            </View>
-            <View style={styles.quickTextBox}>
-              <Text size={13} color="#111827" style={styles.quickTitle}>{t('list_name_love')}</Text>
-              <Text size={11} color="#6b7280">{t('me_tracks_count', { num: likedSongsCount })}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.quickCard, styles.quickCardLast]}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (defaultPlaylist) handleOpenList(defaultPlaylist)
-            }}
-          >
-            <View style={[styles.quickIconBox, { backgroundColor: '#dbeafe' }]}>
-              <Icon name="play" rawSize={18} color="#3b82f6" />
-            </View>
-            <View style={styles.quickTextBox}>
-              <Text size={13} color="#111827" style={styles.quickTitle}>{t('list_name_default')}</Text>
-              <Text size={11} color="#6b7280">{t('me_tracks_count', { num: defaultSongsCount })}</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text size={18} color="#111827" style={styles.sectionTitle}>{t('me_my_playlists')}</Text>
-            <View style={styles.sectionHeaderActions}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.sectionIconBtn, isPlaylistTimeSort ? styles.sectionIconBtnActive : null]}
-                onPress={handleTogglePlaylistSort}
-              >
-                <MaterialCommunityIcon name={playlistSortIcon} size={15} color={isPlaylistTimeSort ? '#111827' : '#6b7280'} />
               </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.sectionIconBtn}
-                onPress={handleShowCreateListModal}
-              >
-                <MaterialCommunityIcon name="plus" size={16} color="#111827" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View>
-            {displayPlaylists.map(item => (
-              <TouchableOpacity key={item.id} style={styles.listItem} activeOpacity={0.8} onPress={() => { handleOpenList(item) }}>
-                <Image style={styles.listPic} url={playlistMetaMap[item.id]?.pic ?? null} />
-                <View style={styles.listInfo}>
-                  <Text size={14} color="#111827" style={styles.listTitle}>{item.name}</Text>
-                  <Text size={11} color="#6b7280">{t('me_songs_count', { num: playlistMetaMap[item.id]?.count ?? 0 })}</Text>
-                </View>
-                <Icon name="chevron-right" rawSize={16} color="#9ca3af" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {SHOW_LISTENING_STATISTICS
-          ? <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text size={18} color="#111827" style={styles.sectionTitle}>Listening Statistics</Text>
-                <Text size={11} color="#111827" style={styles.sectionTag}>Last 7 Days</Text>
-              </View>
-              <View style={styles.statsCard}>
-                {stats.map(item => (
-                  <View key={item.day} style={styles.statsCol}>
-                    <View style={styles.statsBarBg}>
-                      <View style={[styles.statsBar, { height: item.height, opacity: item.active ? 1 : 0.45 }]} />
+              {isSourceMenuVisible
+                ? <View style={styles.sourceMenuPanelFloat}>
+                    <View style={styles.sourcePanel}>
+                      {sourceMenus.map(menu => (
+                        <TouchableOpacity
+                          key={menu.action}
+                          activeOpacity={0.85}
+                          style={[styles.sourcePanelItem, menu.action === searchSource ? styles.sourcePanelItemActive : null]}
+                          onPress={() => { handleSelectSource(menu.action) }}
+                        >
+                          <Text size={12} color={menu.action === searchSource ? '#111827' : '#374151'} style={styles.sourcePanelText}>{menu.label}</Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    <Text size={10} color={item.active ? '#111827' : '#9ca3af'} style={item.active ? styles.dayActive : styles.day}>
-                      {item.day}
-                    </Text>
                   </View>
-                ))}
+                : null}
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.content, { paddingTop: headerHeight + 2, paddingBottom: bottomDockHeight }]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+        >
+          <View style={styles.profileSection}>
+            <View style={styles.avatarWrap}>
+              <Image
+                style={styles.avatar}
+                url={avatarUrl}
+              />
+            </View>
+            <View style={styles.profileInfo}>
+              <Text size={24} color="#111827" style={styles.profileName}>{userName}</Text>
+              <Text size={12} color="#6b7280">{userSignature || t('me_profile_status')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.quickRow}>
+            <Animated.View
+              style={[
+                styles.quickCard,
+                styles.quickCardPrimary,
+                {
+                  transform: [{ translateY: loveCardOffset }, { scale: loveCardScale }],
+                  shadowOpacity: loveCardShadowOpacity,
+                  shadowRadius: loveCardShadowRadius,
+                  elevation: loveCardElevation,
+                },
+              ]}
+            >
+              <Pressable
+                style={styles.quickCardInner}
+                onHoverIn={() => { handleQuickCardInteractive('love', true) }}
+                onHoverOut={() => { handleQuickCardInteractive('love', false) }}
+                onPressIn={() => { handleQuickCardInteractive('love', true) }}
+                onPressOut={() => { handleQuickCardInteractive('love', false) }}
+                onPress={() => {
+                  if (lovePlaylist) handleOpenList(lovePlaylist)
+                }}
+              >
+                <QuickFloatingGradient
+                  active={activeQuickCard == 'love'}
+                />
+                <View style={styles.quickCardContent}>
+                  <View style={styles.quickIconBox}>
+                    <Text size={17} color={QQ_GREEN} style={styles.quickLoveIcon}>{'\u2665'}</Text>
+                  </View>
+                  <View style={styles.quickTextBox}>
+                    <View style={styles.quickMenu}>
+                      <View style={[styles.quickMenuItem, activeQuickCard == 'love' ? styles.quickMenuItemActive : null]}>
+                        <Text size={13} color="#111827" style={styles.quickTitle}>{t('list_name_love')}</Text>
+                      </View>
+                      <View style={[styles.quickMenuItem, styles.quickMenuItemMeta, activeQuickCard == 'love' ? styles.quickMenuItemMetaActive : null]}>
+                        <Text size={11} color="#6b7280">{t('me_tracks_count', { num: likedSongsCount })}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </Pressable>
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.quickCard,
+                styles.quickCardSecondary,
+                styles.quickCardLast,
+                {
+                  transform: [{ translateY: defaultCardOffset }, { scale: defaultCardScale }],
+                  shadowOpacity: defaultCardShadowOpacity,
+                  shadowRadius: defaultCardShadowRadius,
+                  elevation: defaultCardElevation,
+                },
+              ]}
+            >
+              <Pressable
+                style={styles.quickCardInner}
+                onHoverIn={() => { handleQuickCardInteractive('default', true) }}
+                onHoverOut={() => { handleQuickCardInteractive('default', false) }}
+                onPressIn={() => { handleQuickCardInteractive('default', true) }}
+                onPressOut={() => { handleQuickCardInteractive('default', false) }}
+                onPress={() => {
+                  if (defaultPlaylist) handleOpenList(defaultPlaylist)
+                }}
+              >
+                <QuickFloatingGradient
+                  active={activeQuickCard == 'default'}
+                />
+                <View style={styles.quickCardContent}>
+                  <View style={styles.quickIconBox}>
+                    <Icon name="play" rawSize={18} color="#8AB4F8" />
+                  </View>
+                  <View style={styles.quickTextBox}>
+                    <View style={styles.quickMenu}>
+                      <View style={[styles.quickMenuItem, activeQuickCard == 'default' ? styles.quickMenuItemActive : null]}>
+                        <Text size={13} color="#111827" style={styles.quickTitle}>{t('list_name_default')}</Text>
+                      </View>
+                      <View style={[styles.quickMenuItem, styles.quickMenuItemMeta, activeQuickCard == 'default' ? styles.quickMenuItemMetaActive : null]}>
+                        <Text size={11} color="#6b7280">{t('me_tracks_count', { num: defaultSongsCount })}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text size={18} color="#111827" style={styles.sectionTitle}>{t('me_my_playlists')}</Text>
+              <View style={styles.sectionHeaderActions}>
+                <LiquidIconButton
+                  style={styles.sectionIconBtn}
+                  active={isPlaylistTimeSort}
+                  onPress={handleTogglePlaylistSort}
+                >
+                  <MaterialCommunityIcon name={playlistSortIcon} size={15} color={isPlaylistTimeSort ? QQ_GREEN : '#6b7280'} />
+                </LiquidIconButton>
+                <LiquidIconButton
+                  style={styles.sectionIconBtn}
+                  onPress={handleShowCreateListModal}
+                >
+                  <MaterialCommunityIcon name="plus" size={16} color={QQ_GREEN} />
+                </LiquidIconButton>
               </View>
             </View>
-          : null}
-      </ScrollView>
+            <View>
+              {displayPlaylists.map(item => (
+                <TouchableOpacity key={item.id} style={styles.listItem} activeOpacity={0.8} onPress={() => { handleOpenList(item) }}>
+                  <Image style={styles.listPic} url={playlistMetaMap[item.id]?.pic ?? null} />
+                  <View style={styles.listInfo}>
+                    <Text size={14} color="#111827" style={styles.listTitle}>{item.name}</Text>
+                    <Text size={11} color="#6b7280">{t('me_songs_count', { num: playlistMetaMap[item.id]?.count ?? 0 })}</Text>
+                  </View>
+                  <View style={styles.listChevronFrame}>
+                    <Icon name="chevron-right" rawSize={14} color="rgba(107,114,128,0.55)" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {SHOW_LISTENING_STATISTICS
+            ? <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text size={18} color="#111827" style={styles.sectionTitle}>Listening Statistics</Text>
+                  <Text size={11} color="#111827" style={styles.sectionTag}>Last 7 Days</Text>
+                </View>
+                <View style={styles.statsCard}>
+                  {stats.map(item => (
+                    <View key={item.day} style={styles.statsCol}>
+                      <View style={styles.statsBarBg}>
+                        <View style={[styles.statsBar, { height: item.height, opacity: item.active ? 1 : 0.45 }]} />
+                      </View>
+                      <Text size={10} color={item.active ? '#111827' : '#9ca3af'} style={item.active ? styles.dayActive : styles.day}>
+                        {item.day}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            : null}
+        </ScrollView>
+      </View>
       <PromptDialog
         ref={createListDialogRef}
         title={t('me_create_new')}
@@ -1715,9 +1872,44 @@ export default () => {
 }
 
 const styles = createStyle({
+  pageRoot: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: APP_BG,
+    overflow: 'hidden',
+  },
+  backdropLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backdropOrb: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+  },
+  backdropOrbPrimary: {
+    width: 220,
+    height: 220,
+    top: -72,
+    right: -38,
+    opacity: 0.16,
+  },
+  backdropOrbSecondary: {
+    width: 180,
+    height: 180,
+    top: 148,
+    left: -76,
+    opacity: 0.12,
+  },
+  backdropOrbTertiary: {
+    width: 260,
+    height: 260,
+    bottom: 10,
+    right: -96,
+    opacity: 0.11,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   content: {
     paddingBottom: 0,
@@ -1737,7 +1929,7 @@ const styles = createStyle({
     position: 'relative',
     overflow: 'visible',
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   searchResultHeader: {
     position: 'relative',
@@ -1750,11 +1942,11 @@ const styles = createStyle({
     right: 0,
     zIndex: APP_LAYER_INDEX.controls,
     elevation: 0,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   searchResultRow: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1764,11 +1956,11 @@ const styles = createStyle({
   },
   searchResultList: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   searchModeRoot: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   searchResultContent: {
     paddingBottom: 16,
@@ -1780,7 +1972,7 @@ const styles = createStyle({
     bottom: 0,
     zIndex: APP_LAYER_INDEX.controls - 1,
     elevation: 0,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -1806,8 +1998,8 @@ const styles = createStyle({
     maxWidth: '100%',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+    borderColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.24)',
     paddingHorizontal: 11,
     paddingVertical: 6,
     marginRight: 8,
@@ -1829,88 +2021,153 @@ const styles = createStyle({
     right: 0,
     zIndex: APP_LAYER_INDEX.controls,
     elevation: 0,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   detailBackBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  liquidIconFill: {
+    width: '100%',
+    height: '100%',
+  },
+  liquidIconFrame: {
+    position: 'relative',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#f1f1f3',
+    overflow: 'hidden',
   },
-  searchWrap: {
-    height: 46,
+  liquidIconFrameActive: {
+    borderColor: GLASS_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.46)',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+  },
+  liquidIconFrameDanger: {
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+  },
+  liquidIconTone: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  liquidIconToneActive: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  liquidIconToneDanger: {
+    backgroundColor: 'rgba(255,84,84,0.06)',
+  },
+  liquidIconGloss: {
+    position: 'absolute',
+    left: 2,
+    right: 2,
+    top: 2,
+    height: '48%',
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  liquidIconInnerBorder: {
+    position: 'absolute',
+    left: 1.5,
+    right: 1.5,
+    top: 1.5,
+    bottom: 1.5,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
+    borderColor: 'rgba(255,255,255,0.42)',
+  },
+  searchWrap: {
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'visible',
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     color: '#111827',
     fontSize: 13,
     paddingVertical: 0,
   },
   searchInputDisplay: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     justifyContent: 'center',
     height: '100%',
   },
   searchInputTrigger: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
     height: '100%',
     justifyContent: 'center',
   },
   sourceMenuAnchor: {
     position: 'relative',
-    marginLeft: 8,
+    marginLeft: 10,
+    paddingLeft: 10,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.52)',
     zIndex: APP_LAYER_INDEX.controls + 2,
   },
   sourceMenuBtn: {
-    borderRadius: 14,
-    overflow: 'hidden',
+    borderRadius: 12,
+    overflow: 'visible',
   },
   sourceCapsule: {
-    height: 28,
-    minWidth: 62,
-    borderRadius: 14,
-    backgroundColor: '#f3f4f6',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    paddingHorizontal: 9,
+    height: 26,
+    minWidth: 44,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sourceText: {
-    fontWeight: '600',
+    fontWeight: '500',
   },
   sourceChevron: {
-    marginLeft: 2,
+    marginLeft: 1,
     transform: [{ rotate: '90deg' }],
   },
   sourcePanel: {
     alignSelf: 'flex-end',
-    width: 110,
-    borderRadius: 10,
+    width: 104,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+    borderColor: GLASS_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.55)',
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
   sourceMenuPanelFloat: {
     position: 'absolute',
@@ -1921,35 +2178,49 @@ const styles = createStyle({
     elevation: APP_LAYER_INDEX.controls + 3,
   },
   searchResultSourceMenuPanelFloat: {
-    marginTop: 2,
+    marginTop: 4,
   },
   sourcePanelItem: {
-    height: 36,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sourcePanelItemActive: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(255,255,255,0.24)',
   },
   sourcePanelText: {
-    fontWeight: '600',
+    fontWeight: '500',
   },
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
     marginBottom: 16,
+    borderRadius: 38,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    overflow: 'hidden',
   },
   avatarWrap: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: '#111827',
-    padding: 3,
-    shadowColor: '#000000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.72)',
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
   avatar: {
     width: '100%',
@@ -1960,73 +2231,162 @@ const styles = createStyle({
   },
   profileInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
   },
   profileName: {
-    fontWeight: '700',
-    marginBottom: 2,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   quickRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
+    columnGap: 12,
     marginBottom: 16,
   },
   quickCard: {
     flex: 1,
-    borderRadius: 10,
+    flexShrink: 1,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
-    shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 10,
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    overflow: 'hidden',
+  },
+  quickCardPrimary: {
+    flex: 1,
+  },
+  quickCardSecondary: {
+    flex: 1,
   },
   quickCardLast: {
     marginRight: 0,
   },
+  quickCardInner: {
+    borderRadius: 26,
+    overflow: 'hidden',
+    minHeight: 82,
+    backgroundColor: 'transparent',
+  },
+  quickCardSingleLayer: {
+    zIndex: 0,
+    backgroundColor: 'transparent',
+  },
+  quickCardSingleLayerActive: {
+    opacity: 1,
+    backgroundColor: 'transparent',
+  },
+  quickCardContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 82,
+    zIndex: 1,
+  },
   quickIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.68)',
+    backgroundColor: 'rgba(255,255,255,0.50)',
   },
   quickLoveIcon: {
     lineHeight: 18,
     fontWeight: '700',
   },
   quickTextBox: {
-    marginLeft: 8,
+    marginLeft: 12,
     flex: 1,
   },
+  quickMenu: {
+    flex: 1,
+  },
+  quickMenuItem: {
+    borderRadius: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    marginBottom: 1,
+  },
+  quickMenuItemMeta: {
+    marginBottom: 0,
+    backgroundColor: 'transparent',
+  },
+  quickMenuItemActive: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  },
+  quickMenuItemMetaActive: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+  },
   quickTitle: {
-    fontWeight: '600',
-    marginBottom: 2,
+    fontWeight: '500',
+  },
+  quickCardGlossSweep: {
+    position: 'absolute',
+    top: -32,
+    bottom: -32,
+    width: 34,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   section: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    marginHorizontal: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    marginBottom: 14,
+    borderRadius: 38,
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    overflow: 'hidden',
+  },
+  playlistSection: {
+    backgroundColor: GLASS_BG,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+  },
+  playlistSectionHeader: {
+    paddingHorizontal: 0,
   },
   detailHero: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   detailHeroCover: {
-    width: 88,
-    height: 88,
-    borderRadius: 12,
+    width: 94,
+    height: 94,
+    borderRadius: 20,
   },
   detailHeroText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 14,
   },
   detailHeroNameRow: {
     flexDirection: 'row',
@@ -2040,47 +2400,36 @@ const styles = createStyle({
   detailHeroActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 10,
   },
   detailHeroIconBtn: {
-    width: 28,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   detailHeroDeleteBtn: {
     marginLeft: 8,
-    backgroundColor: '#fee2e2',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   sectionHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   sectionIconBtn: {
-    width: 28,
-    height: 28,
+    width: 34,
+    height: 34,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     marginRight: 10,
   },
-  sectionIconBtnActive: {
-    borderColor: '#d1d5db',
-    backgroundColor: '#f3f4f6',
-  },
   sectionTitle: {
-    fontWeight: '600',
+    fontWeight: '500',
   },
   sectionTag: {
     fontWeight: '500',
@@ -2088,13 +2437,13 @@ const styles = createStyle({
   statsCard: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
-    shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.82)',
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     padding: 12,
     height: 184,
     flexDirection: 'row',
@@ -2128,47 +2477,74 @@ const styles = createStyle({
     fontWeight: '700',
   },
   listItem: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
-    shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-    padding: 10,
+    position: 'relative',
+    borderRadius: 22,
+    borderStyle: 'solid',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+    overflow: 'hidden',
+    paddingLeft: 0,
+    paddingRight: 4,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 2,
   },
   listPic: {
-    width: 58,
-    height: 58,
-    borderRadius: 8,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.66)',
+    backgroundColor: 'rgba(255,255,255,0.20)',
   },
   listInfo: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   listTitle: {
     fontWeight: '500',
     marginBottom: 2,
   },
-  songItem: {
-    borderRadius: 10,
+  listChevronFrame: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    opacity: 1,
+    borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
-    shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.66)',
+    backgroundColor: 'rgba(255,255,255,0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  songItem: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG,
+    shadowColor: '#d8dde6',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  detailSongItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+    borderRadius: 18,
   },
   songItemWrap: {
     position: 'relative',
@@ -2186,12 +2562,21 @@ const styles = createStyle({
   songPic: {
     width: 50,
     height: 50,
-    borderRadius: 8,
+    borderRadius: 12,
+  },
+  detailSongPic: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
   },
   songInfo: {
     flex: 1,
     marginLeft: 10,
     marginRight: 8,
+  },
+  detailSongInfo: {
+    marginLeft: 8,
+    marginRight: 6,
   },
   songMetaRow: {
     flexDirection: 'row',
@@ -2206,15 +2591,27 @@ const styles = createStyle({
     marginRight: 6,
     fontWeight: '600',
   },
+  detailSongSource: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginRight: 5,
+  },
   songActions: {
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 4,
   },
+  detailSongActions: {
+    marginLeft: 2,
+  },
   songInterval: {
     marginRight: 4,
     minWidth: 40,
     textAlign: 'right',
+  },
+  detailSongInterval: {
+    marginRight: 2,
+    minWidth: 34,
   },
   songDragOverlay: {
     position: 'absolute',
@@ -2244,8 +2641,13 @@ const styles = createStyle({
   songActionBtn: {
     width: 30,
     height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  detailSongActionBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
   },
   searchLoveFilled: {
     lineHeight: 18,
@@ -2268,16 +2670,16 @@ const styles = createStyle({
   },
   importDrawerPanel: {
     maxHeight: '72%',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
+    borderColor: GLASS_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.68)',
     shadowColor: '#111827',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -5 },
-    elevation: 6,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 10,
@@ -2298,15 +2700,15 @@ const styles = createStyle({
     paddingBottom: 24,
   },
   importSongItem: {
-    borderRadius: 10,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG_SOFT,
     shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2317,15 +2719,15 @@ const styles = createStyle({
     marginLeft: 8,
   },
   emptyCard: {
-    borderRadius: 10,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#f1f1f3',
-    backgroundColor: '#ffffff',
+    borderColor: GLASS_BORDER,
+    backgroundColor: GLASS_BG_SOFT,
     shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
     padding: 14,
     alignItems: 'center',
     justifyContent: 'center',

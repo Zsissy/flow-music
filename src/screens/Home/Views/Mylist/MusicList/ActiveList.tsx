@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react'
-import { TouchableOpacity } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
+import { LiquidIconFrame } from '@/components/common/LiquidIcon'
 import { BorderWidths } from '@/theme'
 import { useTheme } from '@/store/theme/hook'
 import { useActiveListId, useListFetching } from '@/store/list/hook'
@@ -60,11 +61,17 @@ export default forwardRef<ActiveListType, ActiveListProps>(({ onShowSearchBar, o
 
   return (
     <TouchableOpacity onPress={showList} onLongPress={onScrollToTop} style={{ ...styles.currentList, opacity: visibleBar ? 1 : 0, borderBottomColor: theme['c-border-background'] }}>
-      <Icon style={styles.currentListIcon} color={theme['c-button-font']} name="chevron-right" size={12} />
+      <View style={styles.currentListIcon}>
+        <LiquidIconFrame style={styles.currentListIconFrame}>
+          <Icon color={theme['c-button-font']} name="chevron-right" size={12} />
+        </LiquidIconFrame>
+      </View>
       { fetching ? <Loading color={theme['c-button-font']} style={styles.loading} /> : null }
       <Text style={styles.currentListText} numberOfLines={1} color={theme['c-button-font']}>{currentListName}</Text>
       <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}>
-        <Icon color={theme['c-button-font']} name="search-2" />
+        <LiquidIconFrame style={styles.currentListBtnIcon}>
+          <Icon color={theme['c-button-font']} name="search-2" />
+        </LiquidIconFrame>
       </TouchableOpacity>
     </TouchableOpacity>
   )
@@ -86,6 +93,11 @@ const styles = createStyle({
     // paddingTop: 10,
     // paddingBottom: 0,
   },
+  currentListIconFrame: {
+    width: 24,
+    height: 24,
+    borderRadius: 9,
+  },
   currentListText: {
     flex: 1,
     // minWidth: 70,
@@ -103,5 +115,10 @@ const styles = createStyle({
     alignItems: 'center',
     height: '100%',
     // backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  currentListBtnIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
   },
 })

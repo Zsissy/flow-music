@@ -8,6 +8,7 @@ import { useTheme } from '@/store/theme/hook'
 import { type DuplicateMusicItem, filterDuplicateMusic } from './utils'
 import { getListMusics, removeListMusics } from '@/core/list'
 import { Icon } from '@/components/common/Icon'
+import { LiquidIconFrame } from '@/components/common/LiquidIcon'
 import { useUnmounted } from '@/utils/hooks'
 import { playList } from '@/core/player/player'
 import { useI18n } from '@/lang'
@@ -73,10 +74,14 @@ const ListItem = memo(({ info, index, onRemove, onPlay, selectedList, onPress }:
       </View>
       <View style={styles.listItemBtns}>
         <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>
-          <Icon name="play-outline" style={{ color: theme['c-button-font'] }} size={18} />
+          <LiquidIconFrame style={styles.listItemBtnIcon}>
+            <Icon name="play-outline" style={{ color: theme['c-button-font'] }} size={18} />
+          </LiquidIconFrame>
         </Button>
         <Button style={styles.listItemBtn} onPress={() => { onRemove(index) }}>
-          <Icon name="remove" style={{ color: theme['c-button-font'] }} size={18} />
+          <LiquidIconFrame style={styles.listItemBtnIcon}>
+            <Icon name="remove" style={{ color: theme['c-button-font'] }} size={18} />
+          </LiquidIconFrame>
         </Button>
       </View>
     </View>
@@ -317,12 +322,16 @@ const styles = createStyle({
     paddingHorizontal: 8,
   },
   listItemBtn: {
-    padding: 8,
+    padding: 4,
+  },
+  listItemBtnIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
   },
   noitem: {
     paddingVertical: 35,
     alignItems: 'center',
   },
 })
-
 

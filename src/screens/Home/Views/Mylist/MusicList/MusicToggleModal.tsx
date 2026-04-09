@@ -6,6 +6,7 @@ import { FlatList, ScrollView, TouchableOpacity, View, type FlatListProps as _Fl
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
+import { LiquidIconFrame } from '@/components/common/LiquidIcon'
 import { useHorizontalMode, useUnmounted } from '@/utils/hooks'
 import { useI18n } from '@/lang'
 import Button from '@/components/common/Button'
@@ -103,10 +104,14 @@ const ListItem = memo(({ info, onPlay, onOpenDetail }: {
       </View>
       <View style={styles.listItemBtns}>
         <Button style={styles.listItemBtn} onPress={() => { onOpenDetail(info) }}>
-          <Icon name="share" style={{ color: theme['c-button-font'] }} size={18} />
+          <LiquidIconFrame style={styles.listItemBtnIcon}>
+            <Icon name="share" style={{ color: theme['c-button-font'] }} size={18} />
+          </LiquidIconFrame>
         </Button>
         <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>
-          <Icon name="play" style={{ color: theme['c-button-font'] }} size={18} />
+          <LiquidIconFrame style={styles.listItemBtnIcon}>
+            <Icon name="play" style={{ color: theme['c-button-font'] }} size={18} />
+          </LiquidIconFrame>
         </Button>
       </View>
     </View>
@@ -477,7 +482,12 @@ const styles = createStyle({
     paddingHorizontal: 8,
   },
   listItemBtn: {
-    padding: 8,
+    padding: 4,
+  },
+  listItemBtnIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
   },
 
   detailContainer: {
@@ -535,5 +545,4 @@ const styles = createStyle({
     alignItems: 'center',
   },
 })
-
 

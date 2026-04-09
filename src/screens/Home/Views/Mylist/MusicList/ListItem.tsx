@@ -3,6 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 // import { BorderWidths } from '@/theme'
 import { Icon } from '@/components/common/Icon'
+import { LiquidIconFrame } from '@/components/common/LiquidIcon'
 import { createStyle, type RowInfo } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useAssertApiSupport } from '@/store/common/hook'
@@ -48,7 +49,11 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
         {
           active
-            ? <Icon style={styles.sn} name="play-outline" size={13} color={theme['c-primary-font']} />
+            ? <View style={styles.snIconWrap}>
+                <LiquidIconFrame style={styles.snIconFrame}>
+                  <Icon name="play-outline" size={13} color={theme['c-primary-font']} />
+                </LiquidIconFrame>
+              </View>
             : <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
         }
         <View style={styles.itemInfo}>
@@ -70,7 +75,9 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
       </TouchableOpacity>
       {/* <View style={styles.listItemRight}> */}
       <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}>
-        <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
+        <LiquidIconFrame style={styles.moreButtonIcon}>
+          <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
+        </LiquidIconFrame>
       </TouchableOpacity>
       {/* </View> */}
     </View>
@@ -112,6 +119,16 @@ const styles = createStyle({
     paddingLeft: 3,
     paddingRight: 3,
   },
+  snIconWrap: {
+    width: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  snIconFrame: {
+    width: 24,
+    height: 24,
+    borderRadius: 9,
+  },
   itemInfo: {
     flexGrow: 1,
     flexShrink: 1,
@@ -150,11 +167,17 @@ const styles = createStyle({
 
   moreButton: {
     height: '80%',
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: 10,
+    paddingRight: 10,
     // paddingTop: 10,
     // paddingBottom: 10,
     // backgroundColor: 'rgba(0,0,0,0.2)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moreButtonIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
   },
 })
